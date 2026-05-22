@@ -43,12 +43,12 @@ on:
 
 jobs:
   flow:
-    uses: wgtechlabs/build-flow-action/.github/workflows/app.yml@v1
+    uses: wgtechlabs/build-flow-action/.github/workflows/app.yml@main
     secrets: inherit
     with:
       enable-package: true
       enable-container: true
-      enable-release: true
+      enable-release: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
 ```
 
 ## Available Reusable Workflows

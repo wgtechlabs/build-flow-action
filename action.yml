@@ -12,4 +12,4 @@ runs:
     - shell: bash
       run: |
         echo "Build Flow Action is reusable-workflow-first."
-        echo "Use: wgtechlabs/build-flow-action/.github/workflows/app.yml@v1"
+        echo "Use: wgtechlabs/build-flow-action/.github/workflows/app.yml@main"

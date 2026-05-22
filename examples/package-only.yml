@@ -7,8 +7,8 @@ on:
 
 jobs:
   package-flow:
-    uses: wgtechlabs/build-flow-action/.github/workflows/package.yml@v1
+    uses: wgtechlabs/build-flow-action/.github/workflows/package.yml@main
     secrets: inherit
     with:
-      enable-release: true
+      enable-release: ${{ github.ref == 'refs/heads/main' }}
       main-branch: main
