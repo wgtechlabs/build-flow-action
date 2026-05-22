@@ -1,0 +1,15 @@
+name: Build Flow Action
+
+description: |
+  Thin wrapper placeholder for Build Flow Action.
+  Primary integration model is reusable workflows under .github/workflows.
+
+author: WG Technology Labs
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        echo "Build Flow Action is reusable-workflow-first."
+        echo "Use: wgtechlabs/build-flow-action/.github/workflows/app.yml@v1"

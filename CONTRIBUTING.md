@@ -1,24 +1,26 @@
 # Contributing
 
-Thank you for your interest in contributing to `build-flow-action`.
+Thanks for contributing to Build Flow Action.
 
-## Development
+## Contribution Standards
 
-- use Clean Commit convention for commit messages
-- keep changes focused and documented
-- add or update examples when behavior changes
-- update README and architecture docs when introducing new features
+- Follow the WG Technology Labs Clean Commit convention.
+- Keep pull requests focused and coherent.
+- Update docs and examples when behavior changes.
+- Prefer safe-by-default orchestration decisions.
 
 ## Local Validation
 
-Recommended validation steps for future implementation work:
+This repository is currently documentation-and-workflow scaffold oriented. As implementation evolves, validation commands will be expanded.
 
-```bash
-# placeholder for future validation commands
-```
+Current minimum checks before opening a PR:
 
-## Pull Requests
+- Review workflow YAML for valid structure.
+- Validate docs/examples reflect the reusable-workflow-first model.
+- Ensure release remains the final orchestration step in workflow logic.
 
-- describe the problem being solved
-- summarize the workflow or behavior changes
-- include example usage updates when relevant
+## Pull Request Guidance
+
+- Describe intent and user impact clearly.
+- Reference changed workflow(s) and example(s).
+- Include migration notes when changing workflow contracts.

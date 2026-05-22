@@ -1,0 +1,44 @@
+name: build-flow-package
+
+on:
+  workflow_call:
+    inputs:
+      enable-release:
+        description: Enable release finalization
+        required: false
+        type: boolean
+        default: true
+      main-branch:
+        description: Main branch name
+        required: false
+        type: string
+        default: main
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  prepare:
+    name: Prepare context
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare placeholder
+        run: echo "Package flow scaffold"
+
+  package:
+    name: Build and publish package
+    runs-on: ubuntu-latest
+    needs: [prepare]
+    steps:
+      - name: Package placeholder
+        run: 'echo "TODO: wire wgtechlabs/package-build-flow-action"'
+
+  release:
+    name: Release finalize (last)
+    if: ${{ inputs.enable-release }}
+    runs-on: ubuntu-latest
+    needs: [package]
+    steps:
+      - name: Release placeholder
+        run: 'echo "TODO: wire wgtechlabs/release-build-flow-action finalize mode"'
