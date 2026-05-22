@@ -1,0 +1,14 @@
+name: Example - Container Build Flow
+
+on:
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+
+jobs:
+  container-flow:
+    uses: wgtechlabs/build-flow-action/.github/workflows/container.yml@main
+    secrets: inherit
+    with:
+      enable-release: ${{ github.ref == 'refs/heads/main' }}
+      main-branch: main

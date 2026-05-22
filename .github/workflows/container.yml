@@ -1,0 +1,51 @@
+name: build-flow-container
+
+on:
+  workflow_call:
+    inputs:
+      enable-release:
+        description: Enable release finalization
+        required: false
+        type: boolean
+        default: false
+      main-branch:
+        description: Main branch name
+        required: false
+        type: string
+        default: main
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    name: Prepare context
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Prepare placeholder
+        run: echo "Container flow scaffold"
+
+  container:
+    name: Build and publish container
+    runs-on: ubuntu-latest
+    needs: [prepare]
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Container placeholder
+        run: 'echo "TODO: wire wgtechlabs/container-build-flow-action"'
+
+  release:
+    name: Release finalize (last)
+    if: ${{ inputs.enable-release && github.ref == format('refs/heads/{0}', inputs.main-branch) }}
+    runs-on: ubuntu-latest
+    needs: [container]
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Release placeholder
+        run: 'echo "TODO: wire wgtechlabs/release-build-flow-action finalize mode"'
