@@ -145,10 +145,9 @@ The preferred orchestration sequence is:
    - artifact tagging context
 
 3. **Run CI and required gates**
-   - tests
-   - linting
-   - build validation
-   - optional code scanning
+   - secrets scan (Gitleaks)
+   - CodeQL scan
+   - profile-driven validate commands (lint/typecheck/test/build)
 
 4. **Build and publish artifacts**
    - package artifacts if enabled
@@ -209,6 +208,7 @@ The repository should be scaffolded around the following types of assets:
 - `docs/roadmap.md`
 
 ### Reusable workflow entrypoints
+- `.github/workflows/ci.yml`
 - `.github/workflows/app.yml`
 - `.github/workflows/package.yml`
 - `.github/workflows/container.yml`
