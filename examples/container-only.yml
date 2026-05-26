@@ -12,3 +12,17 @@ jobs:
     with:
       enable-release: ${{ github.ref == 'refs/heads/main' }}
       main-branch: main
+      dev-branch: dev
+      publish-dev-artifacts: false
+      publish-pr-artifacts: false
+      publish-manual-artifacts: false
+      container-registry: both
+      container-image-name: ''
+      container-tag-prefix: ''
+      container-tag-suffix: ''
+      release-changelog-path: ./CHANGELOG.md
+      release-draft: false
+      release-prerelease: false
+      release-dry-run: false
+      release-version-prefix: v
+      release-create: true

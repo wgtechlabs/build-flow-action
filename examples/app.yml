@@ -18,3 +18,18 @@ jobs:
       enable-codeql: false
       main-branch: main
       dev-branch: dev
+      publish-dev-artifacts: false
+      publish-pr-artifacts: false
+      publish-manual-artifacts: false
+      package-registry: both
+      package-dry-run: false
+      container-registry: both
+      container-image-name: ''
+      container-tag-prefix: ''
+      container-tag-suffix: ''
+      release-changelog-path: ./CHANGELOG.md
+      release-draft: false
+      release-prerelease: false
+      release-dry-run: false
+      release-version-prefix: v
+      release-create: true

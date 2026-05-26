@@ -8,9 +8,9 @@ Provide one safe-by-default entrypoint so teams can adopt a complete build and r
 
 ## Status
 
-> MVP scaffold in progress.
+> MVP orchestration scaffold with primitive wiring in place.
 
-This repository is intentionally reusable-workflow-first. The initial workflows define orchestration shape and safe sequencing while implementation details are wired in incrementally.
+This repository is intentionally reusable-workflow-first. The reusable workflows now invoke WG Technology Labs package/container/release primitives with policy gates and release-last sequencing. CI and CodeQL implementation details continue to evolve incrementally.
 
 ## Ecosystem Relationship
 
@@ -49,6 +49,23 @@ jobs:
       enable-package: true
       enable-container: true
       enable-release: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      main-branch: main
+      dev-branch: dev
+      publish-dev-artifacts: false
+      publish-pr-artifacts: false
+      publish-manual-artifacts: false
+      package-registry: both
+      package-dry-run: false
+      container-registry: both
+      container-image-name: ''
+      container-tag-prefix: ''
+      container-tag-suffix: ''
+      release-changelog-path: ./CHANGELOG.md
+      release-draft: false
+      release-prerelease: false
+      release-dry-run: false
+      release-version-prefix: v
+      release-create: true
 ```
 
 ## Available Reusable Workflows
