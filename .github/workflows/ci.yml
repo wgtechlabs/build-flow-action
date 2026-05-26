@@ -153,7 +153,7 @@ jobs:
           matrix_versions="$CI_MATRIX_VERSIONS_INPUT"
           has_matrix=false
           if [[ -n "${matrix_versions//[[:space:]]/}" ]]; then
-            matrix_versions="$(echo "$matrix_versions" | jq -c 'if type=="array" then . else error("ci-matrix-versions must be a JSON array") end')" || {
+            matrix_versions="$(echo "$matrix_versions" | jq -c 'if type=="array" then . else error("ci-matrix-versions must be a JSON array") end' 2>/dev/null)" || {
               echo "ci-matrix-versions must be valid JSON array input"
               exit 1
             }
