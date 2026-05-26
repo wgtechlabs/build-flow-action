@@ -152,8 +152,14 @@ jobs:
 
           matrix_versions="$CI_MATRIX_VERSIONS_INPUT"
           has_matrix=false
-          if [[ -n "$matrix_versions" && "$matrix_versions" != "[]" ]]; then
-            has_matrix=true
+          if [[ -n "${matrix_versions//[[:space:]]/}" ]]; then
+            matrix_versions="$(echo "$matrix_versions" | jq -c 'if type=="array" then . else error("ci-matrix-versions must be a JSON array") end')" || {
+              echo "ci-matrix-versions must be valid JSON array input"
+              exit 1
+            }
+            if [[ "$matrix_versions" != "[]" ]]; then
+              has_matrix=true
+            fi
           else
             matrix_versions='[]'
           fi
@@ -197,7 +203,7 @@ jobs:
               resolved_codeql_languages='java-kotlin'
               ;;
             c-cpp)
-              resolved_codeql_languages='c-cpp'
+              resolved_codeql_languages='cpp'
               ;;
             custom)
               resolved_codeql_languages='javascript-typescript'
@@ -322,6 +328,16 @@ jobs:
           languages: ${{ needs.resolve-profile.outputs.resolved-codeql-languages }}
           build-mode: ${{ inputs.codeql-build-mode }}
 
+      - name: Manual mode setup command
+        if: ${{ inputs.codeql-build-mode == 'manual' && needs.resolve-profile.outputs.setup-command != '' }}
+        shell: bash
+        run: ${{ needs.resolve-profile.outputs.setup-command }}
+
+      - name: Manual mode install command
+        if: ${{ inputs.codeql-build-mode == 'manual' && needs.resolve-profile.outputs.install-command != '' }}
+        shell: bash
+        run: ${{ needs.resolve-profile.outputs.install-command }}
+
       - name: Autobuild
         if: ${{ inputs.codeql-build-mode == 'autobuild' }}
         uses: github/codeql-action/autobuild@v3
@@ -379,10 +395,7 @@ jobs:
 
       - name: Setup Bun
         if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'node-bun' }}
-        shell: bash
-        run: |
-          curl -fsSL https://bun.sh/install | bash
-          echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
+        uses: oven-sh/setup-bun@v2
 
       - name: Run setup command
         if: ${{ needs.resolve-profile.outputs.setup-command != '' }}
@@ -466,10 +479,7 @@ jobs:
 
       - name: Setup Bun
         if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'node-bun' }}
-        shell: bash
-        run: |
-          curl -fsSL https://bun.sh/install | bash
-          echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
+        uses: oven-sh/setup-bun@v2
 
       - name: Run setup command
         if: ${{ needs.resolve-profile.outputs.setup-command != '' }}
