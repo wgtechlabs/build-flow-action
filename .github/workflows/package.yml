@@ -13,39 +13,169 @@ on:
         required: false
         type: string
         default: main
+      dev-branch:
+        description: Development branch name
+        required: false
+        type: string
+        default: dev
+      publish-dev-artifacts:
+        description: Allow package publishing on dev branch pushes
+        required: false
+        type: boolean
+        default: false
+      publish-pr-artifacts:
+        description: Allow package publishing for pull requests
+        required: false
+        type: boolean
+        default: false
+      publish-manual-artifacts:
+        description: Allow package publishing for workflow_dispatch runs
+        required: false
+        type: boolean
+        default: false
+      package-registry:
+        description: Package registry target for package primitive (npm, github, or both)
+        required: false
+        type: string
+        default: both
+      package-dry-run:
+        description: Run package primitive in dry-run mode
+        required: false
+        type: boolean
+        default: false
+      release-changelog-path:
+        description: Changelog path passed to release primitive
+        required: false
+        type: string
+        default: ./CHANGELOG.md
+      release-draft:
+        description: Create GitHub release as draft
+        required: false
+        type: boolean
+        default: false
+      release-prerelease:
+        description: Mark GitHub release as prerelease
+        required: false
+        type: boolean
+        default: false
+      release-dry-run:
+        description: Run release primitive in dry-run mode
+        required: false
+        type: boolean
+        default: false
+      release-version-prefix:
+        description: Tag version prefix passed to release primitive
+        required: false
+        type: string
+        default: v
+      release-create:
+        description: Enable GitHub Release creation in release primitive
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: read
 
 jobs:
-  prepare:
-    name: Prepare context
+  context:
+    name: Detect context and policy
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      allow-package-publish: ${{ steps.policy.outputs.allow-package-publish }}
+      allow-release-finalize: ${{ steps.policy.outputs.allow-release-finalize }}
     steps:
-      - name: Prepare placeholder
-        run: echo "Package flow scaffold"
+      - name: Calculate policy
+        id: policy
+        shell: bash
+        run: |
+          is_main=false
+          is_dev=false
+          is_pr=false
+          is_manual=false
+
+          if [[ "${{ github.ref }}" == "refs/heads/${{ inputs.main-branch }}" ]]; then
+            is_main=true
+          fi
+
+          if [[ "${{ github.ref }}" == "refs/heads/${{ inputs.dev-branch }}" ]]; then
+            is_dev=true
+          fi
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            is_pr=true
+          fi
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            is_manual=true
+          fi
+
+          allow_package_publish=false
+          if [[ "$is_main" == "true" ]]; then
+            allow_package_publish=true
+          elif [[ "$is_dev" == "true" && "${{ inputs.publish-dev-artifacts }}" == "true" ]]; then
+            allow_package_publish=true
+          elif [[ "$is_pr" == "true" && "${{ inputs.publish-pr-artifacts }}" == "true" ]]; then
+            allow_package_publish=true
+          elif [[ "$is_manual" == "true" && "${{ inputs.publish-manual-artifacts }}" == "true" ]]; then
+            allow_package_publish=true
+          fi
+
+          allow_release_finalize=false
+          if [[ "${{ inputs.enable-release }}" == "true" && "$is_main" == "true" ]]; then
+            allow_release_finalize=true
+          fi
+
+          {
+            echo "allow-package-publish=$allow_package_publish"
+            echo "allow-release-finalize=$allow_release_finalize"
+          } >> "$GITHUB_OUTPUT"
+
+  ci:
+    name: Build and test
+    runs-on: ubuntu-latest
+    needs: [context]
+    permissions:
+      contents: read
+    steps:
+      - name: CI placeholder
+        run: 'echo "TODO: wire CI reusable workflow or build steps"'
 
   package:
     name: Build and publish package
     runs-on: ubuntu-latest
-    needs: [prepare]
+    if: ${{ needs.context.outputs.allow-package-publish == 'true' }}
+    needs: [context, ci]
     permissions:
       contents: write
       packages: write
     steps:
-      - name: Package placeholder
-        run: 'echo "TODO: wire wgtechlabs/package-build-flow-action"'
+      - name: Run package primitive
+        uses: wgtechlabs/package-build-flow-action@main
+        with:
+          registry: ${{ inputs.package-registry }}
+          dry-run: ${{ inputs.package-dry-run }}
+          main-branch: ${{ inputs.main-branch }}
+          dev-branch: ${{ inputs.dev-branch }}
 
   release:
     name: Release finalize (last)
-    if: ${{ inputs.enable-release && github.ref == format('refs/heads/{0}', inputs.main-branch) }}
+    if: ${{ always() && needs.context.outputs.allow-release-finalize == 'true' && needs.ci.result == 'success' && needs.package.result == 'success' }}
     runs-on: ubuntu-latest
-    needs: [package]
+    needs: [context, ci, package]
     permissions:
       contents: write
       packages: write
     steps:
-      - name: Release placeholder
-        run: 'echo "TODO: wire wgtechlabs/release-build-flow-action finalize mode"'
+      - name: Run release primitive (finalize)
+        uses: wgtechlabs/release-build-flow-action@main
+        with:
+          changelog-path: ${{ inputs.release-changelog-path }}
+          release-draft: ${{ inputs.release-draft }}
+          release-prerelease: ${{ inputs.release-prerelease }}
+          dry-run: ${{ inputs.release-dry-run }}
+          version-prefix: ${{ inputs.release-version-prefix }}
+          create-release: ${{ inputs.release-create }}
+          main-branch: ${{ inputs.main-branch }}
