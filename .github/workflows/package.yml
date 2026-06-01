@@ -8,6 +8,76 @@ on:
         required: false
         type: boolean
         default: false
+      enable-gitleaks:
+        description: Enable Gitleaks gate
+        required: false
+        type: boolean
+        default: true
+      enable-codeql:
+        description: Enable CodeQL gate
+        required: false
+        type: boolean
+        default: true
+      codeql-languages:
+        description: CodeQL languages (auto or comma-separated list)
+        required: false
+        type: string
+        default: auto
+      codeql-build-mode:
+        description: CodeQL build mode (autobuild or manual)
+        required: false
+        type: string
+        default: autobuild
+      ci-profile:
+        description: CI profile (auto|node-bun|node|python|go|java|c-cpp|custom)
+        required: false
+        type: string
+        default: auto
+      ci-matrix-versions:
+        description: 'JSON array of runtime versions (example: ["20","22"])'
+        required: false
+        type: string
+        default: ''
+      ci-setup-command:
+        description: Optional setup command
+        required: false
+        type: string
+        default: ''
+      ci-install-command:
+        description: Optional install command
+        required: false
+        type: string
+        default: ''
+      ci-lint-command:
+        description: Optional lint command
+        required: false
+        type: string
+        default: ''
+      ci-typecheck-command:
+        description: Optional typecheck command
+        required: false
+        type: string
+        default: ''
+      ci-test-command:
+        description: Optional test command
+        required: false
+        type: string
+        default: ''
+      ci-coverage-command:
+        description: Optional coverage command
+        required: false
+        type: string
+        default: ''
+      ci-build-command:
+        description: Optional build command
+        required: false
+        type: string
+        default: ''
+      ci-docker-smoke-command:
+        description: Optional docker smoke command
+        required: false
+        type: string
+        default: ''
       main-branch:
         description: Main branch name
         required: false
@@ -133,21 +203,32 @@ jobs:
             echo "allow-release-finalize=$allow_release_finalize"
           } >> "$GITHUB_OUTPUT"
 
-  ci:
-    name: Build and test
-    runs-on: ubuntu-latest
+  ci-gate:
+    name: Unified CI gate
     needs: [context]
-    permissions:
-      contents: read
-    steps:
-      - name: CI placeholder
-        run: 'echo "TODO: wire CI reusable workflow or build steps"'
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
+    with:
+      enable-gitleaks: ${{ inputs.enable-gitleaks }}
+      enable-codeql: ${{ inputs.enable-codeql }}
+      codeql-languages: ${{ inputs.codeql-languages }}
+      codeql-build-mode: ${{ inputs.codeql-build-mode }}
+      ci-profile: ${{ inputs.ci-profile }}
+      ci-matrix-versions: ${{ inputs.ci-matrix-versions }}
+      ci-setup-command: ${{ inputs.ci-setup-command }}
+      ci-install-command: ${{ inputs.ci-install-command }}
+      ci-lint-command: ${{ inputs.ci-lint-command }}
+      ci-typecheck-command: ${{ inputs.ci-typecheck-command }}
+      ci-test-command: ${{ inputs.ci-test-command }}
+      ci-coverage-command: ${{ inputs.ci-coverage-command }}
+      ci-build-command: ${{ inputs.ci-build-command }}
+      ci-docker-smoke-command: ${{ inputs.ci-docker-smoke-command }}
 
   package:
     name: Build and publish package
     runs-on: ubuntu-latest
     if: ${{ needs.context.outputs.allow-package-publish == 'true' }}
-    needs: [context, ci]
+    needs: [context, ci-gate]
     permissions:
       contents: write
       packages: write
@@ -162,9 +243,9 @@ jobs:
 
   release:
     name: Release finalize (last)
-    if: ${{ always() && needs.context.outputs.allow-release-finalize == 'true' && needs.ci.result == 'success' && needs.package.result == 'success' }}
+    if: ${{ always() && needs.context.outputs.allow-release-finalize == 'true' && needs.ci-gate.outputs.ci-gate-status == 'success' && needs.package.result == 'success' }}
     runs-on: ubuntu-latest
-    needs: [context, ci, package]
+    needs: [context, ci-gate, package]
     permissions:
       contents: write
       packages: write

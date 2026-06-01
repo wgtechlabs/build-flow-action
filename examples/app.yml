@@ -15,7 +15,16 @@ jobs:
       enable-package: true
       enable-container: true
       enable-release: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-      enable-codeql: false
+      enable-gitleaks: true
+      enable-codeql: true
+      codeql-languages: auto
+      codeql-build-mode: autobuild
+      ci-profile: node-bun
+      ci-install-command: bun install --frozen-lockfile || npm ci
+      ci-lint-command: bun run lint || npm run lint --if-present
+      ci-typecheck-command: bun run typecheck || npm run typecheck --if-present
+      ci-test-command: bun test || npm test --if-present
+      ci-build-command: bun run build || npm run build --if-present
       main-branch: main
       dev-branch: dev
       publish-dev-artifacts: false

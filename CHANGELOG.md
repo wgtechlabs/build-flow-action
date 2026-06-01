@@ -13,3 +13,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reusable workflow entrypoints for app, package-only, and container-only modes.
 - Architecture and roadmap documentation.
 - Example consumer workflows.
+- Unified reusable CI gate workflow with profile resolution, Gitleaks, CodeQL, and customizable validation commands.

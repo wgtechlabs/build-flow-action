@@ -11,6 +11,11 @@ jobs:
     secrets: inherit
     with:
       enable-release: ${{ github.ref == 'refs/heads/main' }}
+      enable-gitleaks: true
+      enable-codeql: true
+      ci-profile: c-cpp
+      ci-build-command: cmake -S . -B build && cmake --build build
+      ci-test-command: ctest --test-dir build --output-on-failure
       main-branch: main
       dev-branch: dev
       publish-dev-artifacts: false
