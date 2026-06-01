@@ -194,41 +194,50 @@ jobs:
       - name: Calculate policy
         id: policy
         shell: bash
+        env:
+          GH_REF: ${{ github.ref }}
+          INPUT_MAIN_BRANCH: ${{ inputs.main-branch }}
+          INPUT_DEV_BRANCH: ${{ inputs.dev-branch }}
+          GH_EVENT_NAME: ${{ github.event_name }}
+          INPUT_PUBLISH_DEV: ${{ inputs.publish-dev-artifacts }}
+          INPUT_PUBLISH_PR: ${{ inputs.publish-pr-artifacts }}
+          INPUT_PUBLISH_MANUAL: ${{ inputs.publish-manual-artifacts }}
+          INPUT_ENABLE_RELEASE: ${{ inputs.enable-release }}
         run: |
           is_main=false
           is_dev=false
           is_pr=false
           is_manual=false
 
-          if [[ "${{ github.ref }}" == "refs/heads/${{ inputs.main-branch }}" ]]; then
+          if [[ "$GH_REF" == "refs/heads/$INPUT_MAIN_BRANCH" ]]; then
             is_main=true
           fi
 
-          if [[ "${{ github.ref }}" == "refs/heads/${{ inputs.dev-branch }}" ]]; then
+          if [[ "$GH_REF" == "refs/heads/$INPUT_DEV_BRANCH" ]]; then
             is_dev=true
           fi
 
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+          if [[ "$GH_EVENT_NAME" == "pull_request" ]]; then
             is_pr=true
           fi
 
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          if [[ "$GH_EVENT_NAME" == "workflow_dispatch" ]]; then
             is_manual=true
           fi
 
           allow_artifact_publish=false
           if [[ "$is_main" == "true" ]]; then
             allow_artifact_publish=true
-          elif [[ "$is_dev" == "true" && "${{ inputs.publish-dev-artifacts }}" == "true" ]]; then
+          elif [[ "$is_dev" == "true" && "$INPUT_PUBLISH_DEV" == "true" ]]; then
             allow_artifact_publish=true
-          elif [[ "$is_pr" == "true" && "${{ inputs.publish-pr-artifacts }}" == "true" ]]; then
+          elif [[ "$is_pr" == "true" && "$INPUT_PUBLISH_PR" == "true" ]]; then
             allow_artifact_publish=true
-          elif [[ "$is_manual" == "true" && "${{ inputs.publish-manual-artifacts }}" == "true" ]]; then
+          elif [[ "$is_manual" == "true" && "$INPUT_PUBLISH_MANUAL" == "true" ]]; then
             allow_artifact_publish=true
           fi
 
           allow_release_finalize=false
-          if [[ "${{ inputs.enable-release }}" == "true" && "$is_main" == "true" ]]; then
+          if [[ "$INPUT_ENABLE_RELEASE" == "true" && "$is_main" == "true" ]]; then
             allow_release_finalize=true
           fi
 
@@ -243,17 +252,26 @@ jobs:
 
       - name: Emit summary
         shell: bash
+        env:
+          GH_EVENT_NAME: ${{ github.event_name }}
+          GH_REF: ${{ github.ref }}
+          IS_MAIN: ${{ steps.policy.outputs.is-main }}
+          IS_DEV: ${{ steps.policy.outputs.is-dev }}
+          IS_PR: ${{ steps.policy.outputs.is-pr }}
+          IS_MANUAL: ${{ steps.policy.outputs.is-manual }}
+          ALLOW_ARTIFACT: ${{ steps.policy.outputs.allow-artifact-publish }}
+          ALLOW_RELEASE: ${{ steps.policy.outputs.allow-release-finalize }}
         run: |
           {
             echo "## Build Flow Context"
-            echo "- Event: ${{ github.event_name }}"
-            echo "- Ref: ${{ github.ref }}"
-            echo "- Main branch: ${{ steps.policy.outputs.is-main }}"
-            echo "- Dev branch: ${{ steps.policy.outputs.is-dev }}"
-            echo "- PR: ${{ steps.policy.outputs.is-pr }}"
-            echo "- Manual: ${{ steps.policy.outputs.is-manual }}"
-            echo "- Artifact publish allowed: ${{ steps.policy.outputs.allow-artifact-publish }}"
-            echo "- Release finalize allowed: ${{ steps.policy.outputs.allow-release-finalize }}"
+            echo "- Event: $GH_EVENT_NAME"
+            echo "- Ref: $GH_REF"
+            echo "- Main branch: $IS_MAIN"
+            echo "- Dev branch: $IS_DEV"
+            echo "- PR: $IS_PR"
+            echo "- Manual: $IS_MANUAL"
+            echo "- Artifact publish allowed: $ALLOW_ARTIFACT"
+            echo "- Release finalize allowed: $ALLOW_RELEASE"
           } >> "$GITHUB_STEP_SUMMARY"
 
   ci-gate:
@@ -287,7 +305,7 @@ jobs:
       packages: write
     steps:
       - name: Run package primitive
-        uses: wgtechlabs/package-build-flow-action@main
+        uses: wgtechlabs/package-build-flow-action@b794ec3087d39f6e8c2732aebc44715bcfb5a196 # main
         with:
           registry: ${{ inputs.package-registry }}
           dry-run: ${{ inputs.package-dry-run }}
@@ -304,7 +322,7 @@ jobs:
       packages: write
     steps:
       - name: Run container primitive
-        uses: wgtechlabs/container-build-flow-action@main
+        uses: wgtechlabs/container-build-flow-action@7df0af8c4395db7df1927ef215445cd546e9e3f2 # main
         with:
           registry: ${{ inputs.container-registry }}
           image-name: ${{ inputs.container-image-name }}
@@ -323,11 +341,10 @@ jobs:
       - container
     permissions:
       contents: write
-      packages: write
-    if: ${{ always() && needs.context.outputs.allow-release-finalize == 'true' && needs.ci-gate.outputs.ci-gate-status == 'success' && (inputs.enable-package == false || needs.package.result == 'success') && (inputs.enable-container == false || needs.container.result == 'success') }}
+    if: ${{ always() && needs.context.outputs.allow-release-finalize == 'true' && needs.ci.result == 'success' && (inputs.enable-package == false || needs.package.result == 'success') && (inputs.enable-container == false || needs.container.result == 'success') && (needs.codeql.result == 'success' || needs.codeql.result == 'skipped') }}
     steps:
       - name: Run release primitive (finalize)
-        uses: wgtechlabs/release-build-flow-action@main
+        uses: wgtechlabs/release-build-flow-action@caae4110eb1768fda7b73cf2a86a10f3697cdf6b # main
         with:
           changelog-path: ${{ inputs.release-changelog-path }}
           release-draft: ${{ inputs.release-draft }}
