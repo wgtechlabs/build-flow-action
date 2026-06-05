@@ -110,7 +110,7 @@ jobs:
       resolved-ci-profile: ${{ steps.resolve.outputs.resolved-ci-profile }}
       resolved-codeql-languages: ${{ steps.resolve.outputs.resolved-codeql-languages }}
       resolved-runtime-version: ${{ steps.resolve.outputs.resolved-runtime-version }}
-      has-node-version-file: ${{ steps.resolve.outputs.has-node-version-file }}
+      node-version-file: ${{ steps.resolve.outputs.node-version-file }}
       has-matrix: ${{ steps.resolve.outputs.has-matrix }}
       matrix-versions: ${{ steps.resolve.outputs.matrix-versions }}
       setup-command: ${{ steps.resolve.outputs.setup-command }}
@@ -189,7 +189,7 @@ jobs:
           docker_smoke_command=''
           resolved_codeql_languages=''
           default_runtime_version=''
-          has_node_version_file='false'
+          node_version_file=''
 
           case "$resolved_profile" in
             node-bun)
@@ -201,8 +201,10 @@ jobs:
               build_command='bun run build || npm run build --if-present'
               resolved_codeql_languages='javascript-typescript'
               default_runtime_version='22'
-              if [[ -f ".nvmrc" || -f ".node-version" ]]; then
-                has_node_version_file='true'
+              if [[ -f ".nvmrc" ]]; then
+                node_version_file='.nvmrc'
+              elif [[ -f ".node-version" ]]; then
+                node_version_file='.node-version'
               fi
               ;;
             node)
@@ -214,8 +216,10 @@ jobs:
               build_command='npm run build --if-present'
               resolved_codeql_languages='javascript-typescript'
               default_runtime_version='22'
-              if [[ -f ".nvmrc" || -f ".node-version" ]]; then
-                has_node_version_file='true'
+              if [[ -f ".nvmrc" ]]; then
+                node_version_file='.nvmrc'
+              elif [[ -f ".node-version" ]]; then
+                node_version_file='.node-version'
               fi
               ;;
             python)
@@ -303,7 +307,7 @@ jobs:
             echo "resolved-ci-profile=$resolved_profile"
             echo "resolved-codeql-languages=$resolved_codeql_languages"
             echo "resolved-runtime-version=$resolved_runtime_version"
-            echo "has-node-version-file=$has_node_version_file"
+            echo "node-version-file=$node_version_file"
             echo "has-matrix=$has_matrix"
             echo "matrix-versions=$matrix_versions"
 
@@ -350,7 +354,7 @@ jobs:
             echo "- Resolved runtime version: ${{ steps.resolve.outputs.resolved-runtime-version }}"
             echo "- Resolved CodeQL languages: ${{ steps.resolve.outputs.resolved-codeql-languages }}"
             echo "- Matrix versions: ${{ steps.resolve.outputs.matrix-versions }}"
-            echo "- Node version file: ${{ steps.resolve.outputs.has-node-version-file }}"
+            echo "- Node version file: ${{ steps.resolve.outputs.node-version-file }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
   gitleaks:
@@ -429,14 +433,14 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Node.js (version file)
-        if: ${{ (needs.resolve-profile.outputs.resolved-ci-profile == 'node' || needs.resolve-profile.outputs.resolved-ci-profile == 'node-bun') && needs.resolve-profile.outputs.has-node-version-file == 'true' }}
+        if: ${{ (needs.resolve-profile.outputs.resolved-ci-profile == 'node' || needs.resolve-profile.outputs.resolved-ci-profile == 'node-bun') && needs.resolve-profile.outputs.node-version-file != '' }}
         uses: actions/setup-node@v4
         with:
-          node-version-file: .nvmrc
+          node-version-file: ${{ needs.resolve-profile.outputs.node-version-file }}
           cache: npm
 
       - name: Setup Node.js (explicit version)
-        if: ${{ (needs.resolve-profile.outputs.resolved-ci-profile == 'node' || needs.resolve-profile.outputs.resolved-ci-profile == 'node-bun') && needs.resolve-profile.outputs.has-node-version-file != 'true' }}
+        if: ${{ (needs.resolve-profile.outputs.resolved-ci-profile == 'node' || needs.resolve-profile.outputs.resolved-ci-profile == 'node-bun') && needs.resolve-profile.outputs.node-version-file == '' }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ needs.resolve-profile.outputs.resolved-runtime-version }}
@@ -457,8 +461,9 @@ jobs:
 
       - name: Setup Rust
         if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'rust' }}
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: ${{ needs.resolve-profile.outputs.resolved-runtime-version }}
           components: clippy
 
       - name: Setup Java
@@ -549,8 +554,9 @@ jobs:
 
       - name: Setup Rust
         if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'rust' }}
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: ${{ matrix.version }}
           components: clippy
 
       - name: Setup Java
