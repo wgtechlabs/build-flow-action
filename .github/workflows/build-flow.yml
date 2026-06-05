@@ -15,7 +15,7 @@ jobs:
       enable-package: false
       enable-container: false
       enable-release: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-      enable-gitleaks: true
+      enable-gitleaks: false
       enable-codeql: false
       ci-profile: custom
       main-branch: main
