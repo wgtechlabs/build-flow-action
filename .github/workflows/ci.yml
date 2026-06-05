@@ -223,7 +223,7 @@ jobs:
               fi
               ;;
             python)
-              install_command='pip install -r requirements.txt'
+              install_command='if [ -f requirements.txt ]; then pip install -r requirements.txt; else pip install .; fi'
               test_command='pytest -q --no-header || true'
               resolved_codeql_languages='python'
               default_runtime_version='3.12'
@@ -437,14 +437,20 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: ${{ needs.resolve-profile.outputs.node-version-file }}
-          cache: npm
 
       - name: Setup Node.js (explicit version)
         if: ${{ (needs.resolve-profile.outputs.resolved-ci-profile == 'node' || needs.resolve-profile.outputs.resolved-ci-profile == 'node-bun') && needs.resolve-profile.outputs.node-version-file == '' }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ needs.resolve-profile.outputs.resolved-runtime-version }}
-          cache: npm
+
+      - name: Cache npm dependencies
+        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'node' }}
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-npm-
 
       - name: Setup Python
         if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'python' }}
@@ -537,7 +543,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.version }}
-          cache: npm
+
+      - name: Cache npm dependencies
+        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'node' }}
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ matrix.version }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-npm-${{ matrix.version }}-
 
       - name: Setup Python
         if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'python' }}
