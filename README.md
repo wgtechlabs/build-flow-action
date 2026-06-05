@@ -54,6 +54,8 @@ jobs:
       codeql-languages: auto
       codeql-build-mode: autobuild
       ci-profile: auto
+      ci-runs-on: ubuntu-latest
+      ci-runtime-version: '22'
       ci-matrix-versions: '["20","22"]'
       ci-install-command: npm ci
       ci-lint-command: npm run lint --if-present
@@ -90,34 +92,56 @@ jobs:
 
 `ci.yml` supports `explicit profile -> auto detect -> custom` and can be used directly or through `app.yml`, `package.yml`, and `container.yml`.
 
+Profiles auto-detect from lockfiles/manifests (`auto`) or can be set explicitly. Each profile includes sensible default commands and dependency caching.
+
 ```yaml
-# Node/Bun
+# Node/Bun (auto-detects .nvmrc/.node-version for version pinning)
 ci-profile: node-bun
 ci-install-command: bun install --frozen-lockfile
 ci-test-command: bun test
 
-# Python
+# Python (defaults: pip install, pytest)
 ci-profile: python
+ci-runtime-version: '3.13'
 ci-matrix-versions: '["3.11","3.12"]'
 ci-install-command: pip install -r requirements.txt
 ci-test-command: pytest -q
 
-# Java
+# Go (defaults: go build, go test)
+ci-profile: go
+ci-runtime-version: '1.23'
+ci-test-command: go test ./...
+
+# Rust (defaults: cargo build, cargo test, cargo clippy)
+ci-profile: rust
+ci-build-command: cargo build
+ci-test-command: cargo test
+
+# Java (defaults: gradlew/mvn build and test)
 ci-profile: java
 ci-matrix-versions: '["17","21"]'
 ci-build-command: ./gradlew build
 
-# C/C++
+# C/C++ (defaults: cmake build and ctest)
 ci-profile: c-cpp
 ci-build-command: cmake -S . -B build && cmake --build build
 ci-test-command: ctest --test-dir build --output-on-failure
 
-# Custom
+# Custom (no defaults — bring your own commands)
 ci-profile: custom
 ci-setup-command: ./scripts/ci/setup.sh
 ci-install-command: ./scripts/ci/install.sh
 ci-lint-command: ./scripts/ci/lint.sh
 ci-test-command: ./scripts/ci/test.sh
+```
+
+## Runner and Version Configuration
+
+All CI jobs default to `ubuntu-latest`. Override with `ci-runs-on` for macOS, Windows, or self-hosted runners:
+
+```yaml
+ci-runs-on: macos-latest        # or windows-latest, self-hosted, etc.
+ci-runtime-version: '22'        # pin runtime version without using matrix
 ```
 
 ## Documentation
