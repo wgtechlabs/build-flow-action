@@ -42,6 +42,8 @@ jobs:
 
 Build Flow auto-detects your project from lockfiles and manifests — no configuration needed for most projects.
 
+For production repositories, pin reusable workflow references to a release tag or commit SHA instead of `@main`.
+
 ### With Common Options
 
 ```yaml
@@ -117,6 +119,13 @@ Key behaviors:
 
 ```yaml
 uses: wgtechlabs/build-flow-action/.github/workflows/<workflow>@main
+```
+
+For production safety, prefer:
+
+```yaml
+uses: wgtechlabs/build-flow-action/.github/workflows/<workflow>@v1
+# or pin to a full commit SHA
 ```
 
 ## CI Profiles and Custom Commands
