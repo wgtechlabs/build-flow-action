@@ -8,15 +8,14 @@ on:
   workflow_dispatch:
 
 jobs:
-  flow:
-    uses: ./.github/workflows/app.yml
+  ci:
+    uses: ./.github/workflows/ci.yml
     secrets: inherit
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
     with:
-      enable-package: false
-      enable-container: false
-      enable-release: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       enable-gitleaks: false
       enable-codeql: false
       ci-profile: custom
-      main-branch: main
-      dev-branch: dev

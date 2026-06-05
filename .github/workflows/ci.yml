@@ -84,9 +84,6 @@ on:
         type: string
         default: ''
     outputs:
-      ci-gate-status:
-        description: Unified CI gate status
-        value: ${{ jobs.gate.outputs.ci-gate-status }}
       resolved-ci-profile:
         description: Resolved CI profile
         value: ${{ jobs.resolve-profile.outputs.resolved-ci-profile }}
@@ -113,6 +110,7 @@ jobs:
       node-version-file: ${{ steps.resolve.outputs.node-version-file }}
       has-matrix: ${{ steps.resolve.outputs.has-matrix }}
       matrix-versions: ${{ steps.resolve.outputs.matrix-versions }}
+      validate-versions: ${{ steps.resolve.outputs.validate-versions }}
       setup-command: ${{ steps.resolve.outputs.setup-command }}
       install-command: ${{ steps.resolve.outputs.install-command }}
       lint-command: ${{ steps.resolve.outputs.lint-command }}
@@ -303,6 +301,15 @@ jobs:
             docker_smoke_command="$CI_DOCKER_SMOKE_COMMAND_INPUT"
           fi
 
+          # Build validate-versions: always a non-empty JSON array
+          if [[ "$has_matrix" == "true" ]]; then
+            validate_versions="$matrix_versions"
+          elif [[ -n "$resolved_runtime_version" ]]; then
+            validate_versions="[\"$resolved_runtime_version\"]"
+          else
+            validate_versions='["latest"]'
+          fi
+
           {
             echo "resolved-ci-profile=$resolved_profile"
             echo "resolved-codeql-languages=$resolved_codeql_languages"
@@ -310,6 +317,7 @@ jobs:
             echo "node-version-file=$node_version_file"
             echo "has-matrix=$has_matrix"
             echo "matrix-versions=$matrix_versions"
+            echo "validate-versions=$validate_versions"
 
             echo "setup-command<<EOF"
             echo "$setup_command"
@@ -354,179 +362,12 @@ jobs:
             echo "- Resolved runtime version: ${{ steps.resolve.outputs.resolved-runtime-version }}"
             echo "- Resolved CodeQL languages: ${{ steps.resolve.outputs.resolved-codeql-languages }}"
             echo "- Matrix versions: ${{ steps.resolve.outputs.matrix-versions }}"
+            echo "- Validate versions: ${{ steps.resolve.outputs.validate-versions }}"
             echo "- Node version file: ${{ steps.resolve.outputs.node-version-file }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-  gitleaks:
-    name: Gitleaks security scan
-    if: ${{ inputs.enable-gitleaks }}
-    runs-on: ${{ inputs.ci-runs-on }}
-    needs: [resolve-profile]
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
-
-  codeql:
-    name: CodeQL security scan
-    if: ${{ inputs.enable-codeql && needs.resolve-profile.outputs.resolved-codeql-languages != '' }}
-    runs-on: ${{ inputs.ci-runs-on }}
-    needs: [resolve-profile]
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: ${{ needs.resolve-profile.outputs.resolved-codeql-languages }}
-          build-mode: ${{ inputs.codeql-build-mode }}
-
-      - name: Manual mode setup command
-        if: ${{ inputs.codeql-build-mode == 'manual' && needs.resolve-profile.outputs.setup-command != '' }}
-        shell: bash
-        run: ${{ needs.resolve-profile.outputs.setup-command }}
-
-      - name: Manual mode install command
-        if: ${{ inputs.codeql-build-mode == 'manual' && needs.resolve-profile.outputs.install-command != '' }}
-        shell: bash
-        run: ${{ needs.resolve-profile.outputs.install-command }}
-
-      - name: Autobuild
-        if: ${{ inputs.codeql-build-mode == 'autobuild' }}
-        uses: github/codeql-action/autobuild@v3
-
-      - name: Manual build
-        if: ${{ inputs.codeql-build-mode == 'manual' && needs.resolve-profile.outputs.build-command != '' }}
-        shell: bash
-        run: ${{ needs.resolve-profile.outputs.build-command }}
-
-      - name: Validate manual build command
-        if: ${{ inputs.codeql-build-mode == 'manual' && needs.resolve-profile.outputs.build-command == '' }}
-        shell: bash
-        run: |
-          echo "codeql-build-mode=manual requires ci-build-command or a profile build command"
-          exit 1
-
-      - name: Analyze
-        uses: github/codeql-action/analyze@v3
-
   validate:
     name: Validate
-    if: ${{ needs.resolve-profile.outputs.has-matrix != 'true' }}
-    runs-on: ${{ inputs.ci-runs-on }}
-    needs: [resolve-profile]
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js (version file)
-        if: ${{ (needs.resolve-profile.outputs.resolved-ci-profile == 'node' || needs.resolve-profile.outputs.resolved-ci-profile == 'node-bun') && needs.resolve-profile.outputs.node-version-file != '' }}
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: ${{ needs.resolve-profile.outputs.node-version-file }}
-
-      - name: Setup Node.js (explicit version)
-        if: ${{ (needs.resolve-profile.outputs.resolved-ci-profile == 'node' || needs.resolve-profile.outputs.resolved-ci-profile == 'node-bun') && needs.resolve-profile.outputs.node-version-file == '' }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ needs.resolve-profile.outputs.resolved-runtime-version }}
-
-      - name: Cache npm dependencies
-        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'node' }}
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: ${{ runner.os }}-npm-
-
-      - name: Setup Python
-        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'python' }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ needs.resolve-profile.outputs.resolved-runtime-version }}
-          cache: pip
-
-      - name: Setup Go
-        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'go' }}
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ needs.resolve-profile.outputs.resolved-runtime-version }}
-
-      - name: Setup Rust
-        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'rust' }}
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ needs.resolve-profile.outputs.resolved-runtime-version }}
-          components: clippy
-
-      - name: Setup Java
-        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'java' }}
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: ${{ needs.resolve-profile.outputs.resolved-runtime-version }}
-
-      - name: Setup Bun
-        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'node-bun' }}
-        uses: oven-sh/setup-bun@v2
-
-      - name: Run setup command
-        if: ${{ needs.resolve-profile.outputs.setup-command != '' }}
-        shell: bash
-        run: ${{ needs.resolve-profile.outputs.setup-command }}
-
-      - name: Run install command
-        if: ${{ needs.resolve-profile.outputs.install-command != '' }}
-        shell: bash
-        run: ${{ needs.resolve-profile.outputs.install-command }}
-
-      - name: Run lint command
-        if: ${{ needs.resolve-profile.outputs.lint-command != '' }}
-        shell: bash
-        run: ${{ needs.resolve-profile.outputs.lint-command }}
-
-      - name: Run typecheck command
-        if: ${{ needs.resolve-profile.outputs.typecheck-command != '' }}
-        shell: bash
-        run: ${{ needs.resolve-profile.outputs.typecheck-command }}
-
-      - name: Run test command
-        if: ${{ needs.resolve-profile.outputs.test-command != '' }}
-        shell: bash
-        run: ${{ needs.resolve-profile.outputs.test-command }}
-
-      - name: Run coverage command
-        if: ${{ needs.resolve-profile.outputs.coverage-command != '' }}
-        shell: bash
-        run: ${{ needs.resolve-profile.outputs.coverage-command }}
-
-      - name: Run build command
-        if: ${{ needs.resolve-profile.outputs.build-command != '' }}
-        shell: bash
-        run: ${{ needs.resolve-profile.outputs.build-command }}
-
-      - name: Run docker smoke command
-        if: ${{ needs.resolve-profile.outputs.docker-smoke-command != '' }}
-        shell: bash
-        run: ${{ needs.resolve-profile.outputs.docker-smoke-command }}
-
-  validate-matrix:
-    name: Validate (matrix)
-    if: ${{ needs.resolve-profile.outputs.has-matrix == 'true' }}
     runs-on: ${{ inputs.ci-runs-on }}
     needs: [resolve-profile]
     permissions:
@@ -534,13 +375,28 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: ${{ fromJSON(needs.resolve-profile.outputs.matrix-versions) }}
+        version: ${{ fromJSON(needs.resolve-profile.outputs.validate-versions) }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'node' || needs.resolve-profile.outputs.resolved-ci-profile == 'node-bun' }}
+      - name: Run Gitleaks
+        id: gitleaks
+        if: ${{ inputs.enable-gitleaks && matrix.version == fromJSON(needs.resolve-profile.outputs.validate-versions)[0] }}
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+      - name: Setup Node.js (version file)
+        if: ${{ (needs.resolve-profile.outputs.resolved-ci-profile == 'node' || needs.resolve-profile.outputs.resolved-ci-profile == 'node-bun') && needs.resolve-profile.outputs.node-version-file != '' && needs.resolve-profile.outputs.has-matrix != 'true' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ${{ needs.resolve-profile.outputs.node-version-file }}
+
+      - name: Setup Node.js (explicit version)
+        if: ${{ (needs.resolve-profile.outputs.resolved-ci-profile == 'node' || needs.resolve-profile.outputs.resolved-ci-profile == 'node-bun') && (needs.resolve-profile.outputs.node-version-file == '' || needs.resolve-profile.outputs.has-matrix == 'true') && matrix.version != 'latest' }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.version }}
@@ -554,27 +410,27 @@ jobs:
           restore-keys: ${{ runner.os }}-npm-${{ matrix.version }}-
 
       - name: Setup Python
-        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'python' }}
+        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'python' && matrix.version != 'latest' }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.version }}
           cache: pip
 
       - name: Setup Go
-        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'go' }}
+        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'go' && matrix.version != 'latest' }}
         uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.version }}
 
       - name: Setup Rust
-        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'rust' }}
+        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'rust' && matrix.version != 'latest' }}
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.version }}
           components: clippy
 
       - name: Setup Java
-        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'java' }}
+        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'java' && matrix.version != 'latest' }}
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -640,58 +496,57 @@ jobs:
           export CI_MATRIX_VERSION='${{ matrix.version }}'
           ${{ needs.resolve-profile.outputs.docker-smoke-command }}
 
-  gate:
-    name: CI gate result
-    if: ${{ always() }}
-    runs-on: ${{ inputs.ci-runs-on }}
-    needs: [resolve-profile, gitleaks, codeql, validate, validate-matrix]
-    outputs:
-      ci-gate-status: ${{ steps.gate.outputs.ci-gate-status }}
-    steps:
-      - name: Evaluate CI gate
-        id: gate
+      - name: Check Gitleaks result
+        if: ${{ inputs.enable-gitleaks && matrix.version == fromJSON(needs.resolve-profile.outputs.validate-versions)[0] && steps.gitleaks.outcome == 'failure' }}
         shell: bash
         run: |
-          failed=false
+          echo "::error::Gitleaks security scan failed — secrets detected in repository"
+          exit 1
 
-          if [[ '${{ inputs.enable-gitleaks }}' == 'true' && '${{ needs.gitleaks.result }}' != 'success' ]]; then
-            echo "Gitleaks gate failed with result: ${{ needs.gitleaks.result }}"
-            failed=true
-          fi
+  codeql:
+    name: CodeQL security scan
+    if: ${{ inputs.enable-codeql && needs.resolve-profile.outputs.resolved-codeql-languages != '' }}
+    runs-on: ${{ inputs.ci-runs-on }}
+    needs: [resolve-profile]
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-          if [[ '${{ inputs.enable-codeql }}' == 'true' && '${{ needs.codeql.result }}' != 'success' && '${{ needs.codeql.result }}' != 'skipped' ]]; then
-            echo "CodeQL gate failed with result: ${{ needs.codeql.result }}"
-            failed=true
-          fi
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ needs.resolve-profile.outputs.resolved-codeql-languages }}
+          build-mode: ${{ inputs.codeql-build-mode }}
 
-          if [[ '${{ needs.resolve-profile.outputs.has-matrix }}' == 'true' ]]; then
-            if [[ '${{ needs.validate-matrix.result }}' != 'success' ]]; then
-              echo "Validate matrix gate failed with result: ${{ needs.validate-matrix.result }}"
-              failed=true
-            fi
-          else
-            if [[ '${{ needs.validate.result }}' != 'success' ]]; then
-              echo "Validate gate failed with result: ${{ needs.validate.result }}"
-              failed=true
-            fi
-          fi
+      - name: Manual mode setup command
+        if: ${{ inputs.codeql-build-mode == 'manual' && needs.resolve-profile.outputs.setup-command != '' }}
+        shell: bash
+        run: ${{ needs.resolve-profile.outputs.setup-command }}
 
-          status='success'
-          if [[ "$failed" == 'true' ]]; then
-            status='failure'
-          fi
+      - name: Manual mode install command
+        if: ${{ inputs.codeql-build-mode == 'manual' && needs.resolve-profile.outputs.install-command != '' }}
+        shell: bash
+        run: ${{ needs.resolve-profile.outputs.install-command }}
 
-          echo "ci-gate-status=$status" >> "$GITHUB_OUTPUT"
+      - name: Autobuild
+        if: ${{ inputs.codeql-build-mode == 'autobuild' }}
+        uses: github/codeql-action/autobuild@v3
 
-          {
-            echo "## Unified CI Gate"
-            echo "- Gitleaks: ${{ needs.gitleaks.result }}"
-            echo "- CodeQL: ${{ needs.codeql.result }}"
-            echo "- Validate: ${{ needs.validate.result }}"
-            echo "- Validate (matrix): ${{ needs.validate-matrix.result }}"
-            echo "- Gate status: $status"
-          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Manual build
+        if: ${{ inputs.codeql-build-mode == 'manual' && needs.resolve-profile.outputs.build-command != '' }}
+        shell: bash
+        run: ${{ needs.resolve-profile.outputs.build-command }}
 
-          if [[ "$status" == 'failure' ]]; then
-            exit 1
-          fi
+      - name: Validate manual build command
+        if: ${{ inputs.codeql-build-mode == 'manual' && needs.resolve-profile.outputs.build-command == '' }}
+        shell: bash
+        run: |
+          echo "codeql-build-mode=manual requires ci-build-command or a profile build command"
+          exit 1
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3

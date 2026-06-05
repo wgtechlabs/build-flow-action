@@ -280,7 +280,7 @@ jobs:
 
   release:
     name: Release finalize (last)
-    if: ${{ always() && needs.context.outputs.allow-release-finalize == 'true' && needs.ci-gate.outputs.ci-gate-status == 'success' && needs.container.result == 'success' }}
+    if: ${{ always() && needs.context.outputs.allow-release-finalize == 'true' && needs.ci-gate.result == 'success' && needs.container.result == 'success' }}
     runs-on: ubuntu-latest
     needs: [context, ci-gate, container]
     permissions:
