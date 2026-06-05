@@ -75,7 +75,7 @@ jobs:
 | Python | `python` | `pyproject.toml`, `requirements.txt` | pip install, pytest |
 | Go | `go` | `go.mod` | go build, go test |
 | Rust | `rust` | `Cargo.toml` | cargo build, cargo test, cargo clippy |
-| Java | `java` | `pom.xml`, `build.gradle` | gradlew/mvn build and test |
+| Java | `java` | `pom.xml`, `build.gradle`, `build.gradle.kts` | gradlew/mvn build and test |
 | C/C++ | `c-cpp` | `CMakeLists.txt` | cmake build, ctest |
 | Custom | `custom` | — | Bring your own commands |
 
@@ -188,7 +188,7 @@ Build Flow includes security scanning out of the box:
 - **Gitleaks** — detects secrets committed to your repository (enabled by default)
 - **CodeQL** — static analysis for vulnerabilities (enabled by default, language auto-detected)
 
-Both run as part of the CI gate and block releases if issues are found.
+Both are enabled by default. Gitleaks runs as part of the CI gate and blocks releases if secrets are detected. CodeQL runs as an independent security scan alongside the CI gate.
 
 ## Branch Strategy
 
