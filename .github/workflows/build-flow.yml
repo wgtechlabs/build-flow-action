@@ -1,4 +1,4 @@
-name: Build Flow (dogfood)
+name: Build Flow
 
 on:
   pull_request:

@@ -307,7 +307,7 @@ jobs:
           elif [[ -n "$resolved_runtime_version" ]]; then
             validate_versions="[\"$resolved_runtime_version\"]"
           else
-            validate_versions='["latest"]'
+            validate_versions="[\"$resolved_profile\"]"
           fi
 
           {
@@ -396,7 +396,7 @@ jobs:
           node-version-file: ${{ needs.resolve-profile.outputs.node-version-file }}
 
       - name: Setup Node.js (explicit version)
-        if: ${{ (needs.resolve-profile.outputs.resolved-ci-profile == 'node' || needs.resolve-profile.outputs.resolved-ci-profile == 'node-bun') && (needs.resolve-profile.outputs.node-version-file == '' || needs.resolve-profile.outputs.has-matrix == 'true') && matrix.version != 'latest' }}
+        if: ${{ (needs.resolve-profile.outputs.resolved-ci-profile == 'node' || needs.resolve-profile.outputs.resolved-ci-profile == 'node-bun') && (needs.resolve-profile.outputs.node-version-file == '' || needs.resolve-profile.outputs.has-matrix == 'true') }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.version }}
@@ -410,27 +410,27 @@ jobs:
           restore-keys: ${{ runner.os }}-npm-${{ matrix.version }}-
 
       - name: Setup Python
-        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'python' && matrix.version != 'latest' }}
+        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'python' }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.version }}
           cache: pip
 
       - name: Setup Go
-        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'go' && matrix.version != 'latest' }}
+        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'go' }}
         uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.version }}
 
       - name: Setup Rust
-        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'rust' && matrix.version != 'latest' }}
+        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'rust' }}
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.version }}
           components: clippy
 
       - name: Setup Java
-        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'java' && matrix.version != 'latest' }}
+        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'java' }}
         uses: actions/setup-java@v4
         with:
           distribution: temurin
