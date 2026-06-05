@@ -13,9 +13,6 @@ jobs:
     secrets: inherit
     permissions:
       contents: read
-      actions: read
-      security-events: write
     with:
       enable-gitleaks: false
-      enable-codeql: false
       ci-profile: custom

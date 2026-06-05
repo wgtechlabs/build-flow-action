@@ -237,15 +237,11 @@ jobs:
     needs: [context]
     permissions:
       contents: read
-      actions: read
-      security-events: write
     uses: ./.github/workflows/ci.yml
     secrets: inherit
     with:
       enable-gitleaks: ${{ inputs.enable-gitleaks }}
-      enable-codeql: ${{ inputs.enable-codeql }}
       codeql-languages: ${{ inputs.codeql-languages }}
-      codeql-build-mode: ${{ inputs.codeql-build-mode }}
       ci-profile: ${{ inputs.ci-profile }}
       ci-runs-on: ${{ inputs.ci-runs-on }}
       ci-runtime-version: ${{ inputs.ci-runtime-version }}
@@ -258,6 +254,24 @@ jobs:
       ci-coverage-command: ${{ inputs.ci-coverage-command }}
       ci-build-command: ${{ inputs.ci-build-command }}
       ci-docker-smoke-command: ${{ inputs.ci-docker-smoke-command }}
+
+  codeql:
+    name: CodeQL security scan
+    if: ${{ inputs.enable-codeql && needs.ci-gate.outputs.resolved-codeql-languages != '' }}
+    needs: [ci-gate]
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    uses: ./.github/workflows/codeql.yml
+    secrets: inherit
+    with:
+      codeql-languages: ${{ needs.ci-gate.outputs.resolved-codeql-languages }}
+      codeql-build-mode: ${{ inputs.codeql-build-mode }}
+      ci-runs-on: ${{ inputs.ci-runs-on }}
+      setup-command: ${{ inputs.ci-setup-command }}
+      install-command: ${{ inputs.ci-install-command }}
+      build-command: ${{ inputs.ci-build-command }}
 
   container:
     name: Build and publish container

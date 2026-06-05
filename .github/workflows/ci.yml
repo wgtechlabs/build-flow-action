@@ -8,21 +8,11 @@ on:
         required: false
         type: boolean
         default: true
-      enable-codeql:
-        description: Enable CodeQL security gate
-        required: false
-        type: boolean
-        default: true
       codeql-languages:
-        description: CodeQL languages (auto or comma-separated list)
+        description: CodeQL languages hint for resolution (auto or comma-separated list)
         required: false
         type: string
         default: auto
-      codeql-build-mode:
-        description: CodeQL build mode (autobuild or manual)
-        required: false
-        type: string
-        default: autobuild
       ci-profile:
         description: CI profile (auto|node-bun|node|python|go|rust|java|c-cpp|custom)
         required: false
@@ -88,7 +78,7 @@ on:
         description: Resolved CI profile
         value: ${{ jobs.resolve-profile.outputs.resolved-ci-profile }}
       resolved-codeql-languages:
-        description: Resolved CodeQL languages
+        description: Resolved CodeQL languages (for callers to pass to codeql.yml)
         value: ${{ jobs.resolve-profile.outputs.resolved-codeql-languages }}
       resolved-ci-matrix-versions:
         description: Resolved CI matrix versions JSON
@@ -503,50 +493,4 @@ jobs:
           echo "::error::Gitleaks security scan failed — secrets detected in repository"
           exit 1
 
-  codeql:
-    name: CodeQL security scan
-    if: ${{ inputs.enable-codeql && needs.resolve-profile.outputs.resolved-codeql-languages != '' }}
-    runs-on: ${{ inputs.ci-runs-on }}
-    needs: [resolve-profile]
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
 
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: ${{ needs.resolve-profile.outputs.resolved-codeql-languages }}
-          build-mode: ${{ inputs.codeql-build-mode }}
-
-      - name: Manual mode setup command
-        if: ${{ inputs.codeql-build-mode == 'manual' && needs.resolve-profile.outputs.setup-command != '' }}
-        shell: bash
-        run: ${{ needs.resolve-profile.outputs.setup-command }}
-
-      - name: Manual mode install command
-        if: ${{ inputs.codeql-build-mode == 'manual' && needs.resolve-profile.outputs.install-command != '' }}
-        shell: bash
-        run: ${{ needs.resolve-profile.outputs.install-command }}
-
-      - name: Autobuild
-        if: ${{ inputs.codeql-build-mode == 'autobuild' }}
-        uses: github/codeql-action/autobuild@v3
-
-      - name: Manual build
-        if: ${{ inputs.codeql-build-mode == 'manual' && needs.resolve-profile.outputs.build-command != '' }}
-        shell: bash
-        run: ${{ needs.resolve-profile.outputs.build-command }}
-
-      - name: Validate manual build command
-        if: ${{ inputs.codeql-build-mode == 'manual' && needs.resolve-profile.outputs.build-command == '' }}
-        shell: bash
-        run: |
-          echo "codeql-build-mode=manual requires ci-build-command or a profile build command"
-          exit 1
-
-      - name: Analyze
-        uses: github/codeql-action/analyze@v3

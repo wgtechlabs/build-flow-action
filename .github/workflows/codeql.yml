@@ -1,0 +1,86 @@
+name: build-flow-codeql
+
+on:
+  workflow_call:
+    inputs:
+      codeql-languages:
+        description: CodeQL languages (comma-separated list)
+        required: true
+        type: string
+      codeql-build-mode:
+        description: CodeQL build mode (autobuild or manual)
+        required: false
+        type: string
+        default: autobuild
+      ci-runs-on:
+        description: Runner label
+        required: false
+        type: string
+        default: ubuntu-latest
+      setup-command:
+        description: Optional setup command for manual build mode
+        required: false
+        type: string
+        default: ''
+      install-command:
+        description: Optional install command for manual build mode
+        required: false
+        type: string
+        default: ''
+      build-command:
+        description: Optional build command for manual build mode
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+jobs:
+  scan:
+    name: CodeQL security scan
+    runs-on: ${{ inputs.ci-runs-on }}
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ inputs.codeql-languages }}
+          build-mode: ${{ inputs.codeql-build-mode }}
+
+      - name: Manual mode setup command
+        if: ${{ inputs.codeql-build-mode == 'manual' && inputs.setup-command != '' }}
+        shell: bash
+        run: ${{ inputs.setup-command }}
+
+      - name: Manual mode install command
+        if: ${{ inputs.codeql-build-mode == 'manual' && inputs.install-command != '' }}
+        shell: bash
+        run: ${{ inputs.install-command }}
+
+      - name: Autobuild
+        if: ${{ inputs.codeql-build-mode == 'autobuild' }}
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Manual build
+        if: ${{ inputs.codeql-build-mode == 'manual' && inputs.build-command != '' }}
+        shell: bash
+        run: ${{ inputs.build-command }}
+
+      - name: Validate manual build command
+        if: ${{ inputs.codeql-build-mode == 'manual' && inputs.build-command == '' }}
+        shell: bash
+        run: |
+          echo "codeql-build-mode=manual requires a build command"
+          exit 1
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
