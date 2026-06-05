@@ -14,3 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Architecture and roadmap documentation.
 - Example consumer workflows.
 - Unified reusable CI gate workflow with profile resolution, Gitleaks, CodeQL, and customizable validation commands.
+- Dogfood workflow to validate own reusable workflows and release flow.
+
+### Fixed
+
+- Release job condition in `app.yml` referencing wrong job name and non-existent `codeql` dependency.
