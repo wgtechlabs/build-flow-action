@@ -18,11 +18,86 @@ on:
         required: false
         type: boolean
         default: false
+      enable-gitleaks:
+        description: Enable Gitleaks gate
+        required: false
+        type: boolean
+        default: true
       enable-codeql:
         description: Enable CodeQL gate
         required: false
         type: boolean
-        default: false
+        default: true
+      codeql-languages:
+        description: CodeQL languages (auto or comma-separated list)
+        required: false
+        type: string
+        default: auto
+      codeql-build-mode:
+        description: CodeQL build mode (autobuild or manual)
+        required: false
+        type: string
+        default: autobuild
+      ci-profile:
+        description: CI profile (auto|node-bun|node|python|go|rust|java|c-cpp|custom)
+        required: false
+        type: string
+        default: auto
+      ci-runs-on:
+        description: Runner label for CI jobs (e.g., ubuntu-latest, macos-latest, self-hosted)
+        required: false
+        type: string
+        default: ubuntu-latest
+      ci-runtime-version:
+        description: Runtime version for non-matrix validation (e.g., 22 for Node, 3.13 for Python)
+        required: false
+        type: string
+        default: ''
+      ci-matrix-versions:
+        description: 'JSON array of runtime versions (example: ["20","22"])'
+        required: false
+        type: string
+        default: ''
+      ci-setup-command:
+        description: Optional setup command
+        required: false
+        type: string
+        default: ''
+      ci-install-command:
+        description: Optional install command
+        required: false
+        type: string
+        default: ''
+      ci-lint-command:
+        description: Optional lint command
+        required: false
+        type: string
+        default: ''
+      ci-typecheck-command:
+        description: Optional typecheck command
+        required: false
+        type: string
+        default: ''
+      ci-test-command:
+        description: Optional test command
+        required: false
+        type: string
+        default: ''
+      ci-coverage-command:
+        description: Optional coverage command
+        required: false
+        type: string
+        default: ''
+      ci-build-command:
+        description: Optional build command
+        required: false
+        type: string
+        default: ''
+      ci-docker-smoke-command:
+        description: Optional docker smoke command
+        required: false
+        type: string
+        default: ''
       main-branch:
         description: Main branch name
         required: false
@@ -209,33 +284,52 @@ jobs:
             echo "- Release finalize allowed: $ALLOW_RELEASE"
           } >> "$GITHUB_STEP_SUMMARY"
 
-  ci:
-    name: Build and test
-    runs-on: ubuntu-latest
+  ci-gate:
+    name: Unified CI gate
     needs: [context]
     permissions:
       contents: read
-    steps:
-      - name: CI placeholder
-        run: 'echo "TODO: wire CI reusable workflow or build steps"'
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
+    with:
+      enable-gitleaks: ${{ inputs.enable-gitleaks }}
+      codeql-languages: ${{ inputs.codeql-languages }}
+      ci-profile: ${{ inputs.ci-profile }}
+      ci-runs-on: ${{ inputs.ci-runs-on }}
+      ci-runtime-version: ${{ inputs.ci-runtime-version }}
+      ci-matrix-versions: ${{ inputs.ci-matrix-versions }}
+      ci-setup-command: ${{ inputs.ci-setup-command }}
+      ci-install-command: ${{ inputs.ci-install-command }}
+      ci-lint-command: ${{ inputs.ci-lint-command }}
+      ci-typecheck-command: ${{ inputs.ci-typecheck-command }}
+      ci-test-command: ${{ inputs.ci-test-command }}
+      ci-coverage-command: ${{ inputs.ci-coverage-command }}
+      ci-build-command: ${{ inputs.ci-build-command }}
+      ci-docker-smoke-command: ${{ inputs.ci-docker-smoke-command }}
 
   codeql:
-    name: Security gate
-    if: ${{ inputs.enable-codeql }}
-    runs-on: ubuntu-latest
-    needs: [ci]
+    name: CodeQL security scan
+    if: ${{ inputs.enable-codeql && needs.ci-gate.outputs.resolved-codeql-languages != '' }}
+    needs: [ci-gate]
     permissions:
+      actions: read
       contents: read
       security-events: write
-    steps:
-      - name: CodeQL placeholder
-        run: 'echo "TODO: wire CodeQL reusable workflow"'
+    uses: ./.github/workflows/codeql.yml
+    secrets: inherit
+    with:
+      codeql-languages: ${{ needs.ci-gate.outputs.resolved-codeql-languages }}
+      codeql-build-mode: ${{ inputs.codeql-build-mode }}
+      ci-runs-on: ${{ inputs.ci-runs-on }}
+      setup-command: ${{ inputs.ci-setup-command }}
+      install-command: ${{ inputs.ci-install-command }}
+      build-command: ${{ inputs.ci-build-command }}
 
   package:
     name: Package flow
     if: ${{ inputs.enable-package && needs.context.outputs.allow-artifact-publish == 'true' }}
     runs-on: ubuntu-latest
-    needs: [context, ci]
+    needs: [context, ci-gate]
     permissions:
       contents: write
       packages: write
@@ -252,7 +346,7 @@ jobs:
     name: Container flow
     if: ${{ inputs.enable-container && needs.context.outputs.allow-artifact-publish == 'true' }}
     runs-on: ubuntu-latest
-    needs: [context, ci]
+    needs: [context, ci-gate]
     permissions:
       contents: write
       packages: write
@@ -272,13 +366,12 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - context
-      - ci
+      - ci-gate
       - package
       - container
-      - codeql
     permissions:
       contents: write
-    if: ${{ always() && needs.context.outputs.allow-release-finalize == 'true' && needs.ci.result == 'success' && (inputs.enable-package == false || needs.package.result == 'success') && (inputs.enable-container == false || needs.container.result == 'success') && (needs.codeql.result == 'success' || needs.codeql.result == 'skipped') }}
+    if: ${{ always() && needs.context.outputs.allow-release-finalize == 'true' && needs.ci-gate.result == 'success' && (inputs.enable-package == false || needs.package.result == 'success') && (inputs.enable-container == false || needs.container.result == 'success') }}
     steps:
       - name: Run release primitive (finalize)
         uses: wgtechlabs/release-build-flow-action@caae4110eb1768fda7b73cf2a86a10f3697cdf6b # main

@@ -1,0 +1,16 @@
+name: Build Flow
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+
+# Zero-config: Build Flow auto-detects your ecosystem from lockfiles/manifests.
+# No inputs needed for most projects — just call app.yml and inherit secrets.
+
+jobs:
+  build-flow:
+    uses: wgtechlabs/build-flow-action/.github/workflows/app.yml@main
+    secrets: inherit

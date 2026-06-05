@@ -1,0 +1,496 @@
+name: build-flow-ci
+
+on:
+  workflow_call:
+    inputs:
+      enable-gitleaks:
+        description: Enable Gitleaks security gate
+        required: false
+        type: boolean
+        default: true
+      codeql-languages:
+        description: CodeQL languages hint for resolution (auto or comma-separated list)
+        required: false
+        type: string
+        default: auto
+      ci-profile:
+        description: CI profile (auto|node-bun|node|python|go|rust|java|c-cpp|custom)
+        required: false
+        type: string
+        default: auto
+      ci-runs-on:
+        description: Runner label for CI jobs (e.g., ubuntu-latest, macos-latest, self-hosted)
+        required: false
+        type: string
+        default: ubuntu-latest
+      ci-runtime-version:
+        description: Runtime version for non-matrix validation (e.g., 22 for Node, 3.13 for Python)
+        required: false
+        type: string
+        default: ''
+      ci-matrix-versions:
+        description: 'JSON array of runtime versions (example: ["20","22"])'
+        required: false
+        type: string
+        default: ''
+      ci-setup-command:
+        description: Optional setup command
+        required: false
+        type: string
+        default: ''
+      ci-install-command:
+        description: Optional install command
+        required: false
+        type: string
+        default: ''
+      ci-lint-command:
+        description: Optional lint command
+        required: false
+        type: string
+        default: ''
+      ci-typecheck-command:
+        description: Optional typecheck command
+        required: false
+        type: string
+        default: ''
+      ci-test-command:
+        description: Optional test command
+        required: false
+        type: string
+        default: ''
+      ci-coverage-command:
+        description: Optional coverage command
+        required: false
+        type: string
+        default: ''
+      ci-build-command:
+        description: Optional build command
+        required: false
+        type: string
+        default: ''
+      ci-docker-smoke-command:
+        description: Optional docker smoke command
+        required: false
+        type: string
+        default: ''
+    outputs:
+      resolved-ci-profile:
+        description: Resolved CI profile
+        value: ${{ jobs.resolve-profile.outputs.resolved-ci-profile }}
+      resolved-codeql-languages:
+        description: Resolved CodeQL languages (for callers to pass to codeql.yml)
+        value: ${{ jobs.resolve-profile.outputs.resolved-codeql-languages }}
+      resolved-ci-matrix-versions:
+        description: Resolved CI matrix versions JSON
+        value: ${{ jobs.resolve-profile.outputs.matrix-versions }}
+
+permissions:
+  contents: read
+
+jobs:
+  resolve-profile:
+    name: Resolve CI profile
+    runs-on: ${{ inputs.ci-runs-on }}
+    permissions:
+      contents: read
+    outputs:
+      resolved-ci-profile: ${{ steps.resolve.outputs.resolved-ci-profile }}
+      resolved-codeql-languages: ${{ steps.resolve.outputs.resolved-codeql-languages }}
+      resolved-runtime-version: ${{ steps.resolve.outputs.resolved-runtime-version }}
+      node-version-file: ${{ steps.resolve.outputs.node-version-file }}
+      has-matrix: ${{ steps.resolve.outputs.has-matrix }}
+      matrix-versions: ${{ steps.resolve.outputs.matrix-versions }}
+      validate-versions: ${{ steps.resolve.outputs.validate-versions }}
+      setup-command: ${{ steps.resolve.outputs.setup-command }}
+      install-command: ${{ steps.resolve.outputs.install-command }}
+      lint-command: ${{ steps.resolve.outputs.lint-command }}
+      typecheck-command: ${{ steps.resolve.outputs.typecheck-command }}
+      test-command: ${{ steps.resolve.outputs.test-command }}
+      coverage-command: ${{ steps.resolve.outputs.coverage-command }}
+      build-command: ${{ steps.resolve.outputs.build-command }}
+      docker-smoke-command: ${{ steps.resolve.outputs.docker-smoke-command }}
+    steps:
+      - name: Checkout repository for profile detection
+        uses: actions/checkout@v4
+
+      - name: Resolve profile defaults
+        id: resolve
+        env:
+          CI_PROFILE_INPUT: ${{ inputs.ci-profile }}
+          CI_RUNTIME_VERSION_INPUT: ${{ inputs.ci-runtime-version }}
+          CI_MATRIX_VERSIONS_INPUT: ${{ inputs.ci-matrix-versions }}
+          CODEQL_LANGUAGES_INPUT: ${{ inputs.codeql-languages }}
+          CI_SETUP_COMMAND_INPUT: ${{ inputs.ci-setup-command }}
+          CI_INSTALL_COMMAND_INPUT: ${{ inputs.ci-install-command }}
+          CI_LINT_COMMAND_INPUT: ${{ inputs.ci-lint-command }}
+          CI_TYPECHECK_COMMAND_INPUT: ${{ inputs.ci-typecheck-command }}
+          CI_TEST_COMMAND_INPUT: ${{ inputs.ci-test-command }}
+          CI_COVERAGE_COMMAND_INPUT: ${{ inputs.ci-coverage-command }}
+          CI_BUILD_COMMAND_INPUT: ${{ inputs.ci-build-command }}
+          CI_DOCKER_SMOKE_COMMAND_INPUT: ${{ inputs.ci-docker-smoke-command }}
+        shell: bash
+        run: |
+          profile_input="$CI_PROFILE_INPUT"
+          resolved_profile="$profile_input"
+
+          if [[ "$profile_input" == "auto" ]]; then
+            if [[ -f "bun.lockb" || -f "bun.lock" ]]; then
+              resolved_profile="node-bun"
+            elif [[ -f "package.json" ]]; then
+              resolved_profile="node"
+            elif [[ -f "pyproject.toml" || -f "requirements.txt" ]]; then
+              resolved_profile="python"
+            elif [[ -f "go.mod" ]]; then
+              resolved_profile="go"
+            elif [[ -f "pom.xml" || -f "build.gradle" || -f "build.gradle.kts" ]]; then
+              resolved_profile="java"
+            elif [[ -f "Cargo.toml" ]]; then
+              resolved_profile="rust"
+            elif [[ -f "CMakeLists.txt" ]]; then
+              resolved_profile="c-cpp"
+            else
+              resolved_profile="custom"
+            fi
+          fi
+
+          matrix_versions="$CI_MATRIX_VERSIONS_INPUT"
+          has_matrix=false
+          if [[ -n "${matrix_versions//[[:space:]]/}" ]]; then
+            matrix_versions="$(echo "$matrix_versions" | jq -e -c 'if type=="array" then . else empty end' 2>/dev/null)" || {
+              echo "ci-matrix-versions must be a JSON array"
+              exit 1
+            }
+            if [[ "$matrix_versions" != "[]" ]]; then
+              has_matrix=true
+            fi
+          else
+            matrix_versions='[]'
+          fi
+
+          setup_command=''
+          install_command=''
+          lint_command=''
+          typecheck_command=''
+          test_command=''
+          coverage_command=''
+          build_command=''
+          docker_smoke_command=''
+          resolved_codeql_languages=''
+          default_runtime_version=''
+          node_version_file=''
+
+          case "$resolved_profile" in
+            node-bun)
+              install_command='bun install --frozen-lockfile || npm ci'
+              lint_command='bun run lint || npm run lint --if-present'
+              typecheck_command='bun run typecheck || npm run typecheck --if-present'
+              test_command='bun test || npm test --if-present'
+              coverage_command='bun run coverage || npm run coverage --if-present'
+              build_command='bun run build || npm run build --if-present'
+              resolved_codeql_languages='javascript-typescript'
+              default_runtime_version='22'
+              if [[ -f ".nvmrc" ]]; then
+                node_version_file='.nvmrc'
+              elif [[ -f ".node-version" ]]; then
+                node_version_file='.node-version'
+              fi
+              ;;
+            node)
+              install_command='npm ci'
+              lint_command='npm run lint --if-present'
+              typecheck_command='npm run typecheck --if-present'
+              test_command='npm test --if-present'
+              coverage_command='npm run coverage --if-present'
+              build_command='npm run build --if-present'
+              resolved_codeql_languages='javascript-typescript'
+              default_runtime_version='22'
+              if [[ -f ".nvmrc" ]]; then
+                node_version_file='.nvmrc'
+              elif [[ -f ".node-version" ]]; then
+                node_version_file='.node-version'
+              fi
+              ;;
+            python)
+              install_command='if [ -f requirements.txt ]; then pip install -r requirements.txt; else pip install .; fi'
+              test_command='pytest -q --no-header || true'
+              resolved_codeql_languages='python'
+              default_runtime_version='3.12'
+              ;;
+            go)
+              build_command='go build ./...'
+              test_command='go test ./...'
+              resolved_codeql_languages='go'
+              default_runtime_version='1.22'
+              ;;
+            rust)
+              build_command='cargo build'
+              test_command='cargo test'
+              lint_command='cargo clippy -- -D warnings || true'
+              resolved_codeql_languages=''
+              default_runtime_version='stable'
+              ;;
+            java)
+              resolved_codeql_languages='java-kotlin'
+              default_runtime_version='21'
+              if [[ -f "build.gradle" || -f "build.gradle.kts" ]]; then
+                build_command='./gradlew build'
+                test_command='./gradlew test'
+              elif [[ -f "pom.xml" ]]; then
+                build_command='mvn -B package --no-transfer-progress'
+                test_command='mvn -B test --no-transfer-progress'
+              fi
+              ;;
+            c-cpp)
+              resolved_codeql_languages='cpp'
+              default_runtime_version=''
+              if [[ -f "CMakeLists.txt" ]]; then
+                build_command='cmake -S . -B build && cmake --build build'
+                test_command='ctest --test-dir build --output-on-failure'
+              fi
+              ;;
+            custom)
+              resolved_codeql_languages=''
+              ;;
+            *)
+              echo "Unsupported ci-profile: $resolved_profile"
+              exit 1
+              ;;
+          esac
+
+          resolved_runtime_version="$default_runtime_version"
+          if [[ -n "$CI_RUNTIME_VERSION_INPUT" ]]; then
+            resolved_runtime_version="$CI_RUNTIME_VERSION_INPUT"
+          fi
+
+          if [[ -n "$CODEQL_LANGUAGES_INPUT" && "$CODEQL_LANGUAGES_INPUT" != 'auto' ]]; then
+            resolved_codeql_languages="$CODEQL_LANGUAGES_INPUT"
+          fi
+
+          if [[ -n "$CI_SETUP_COMMAND_INPUT" ]]; then
+            setup_command="$CI_SETUP_COMMAND_INPUT"
+          fi
+          if [[ -n "$CI_INSTALL_COMMAND_INPUT" ]]; then
+            install_command="$CI_INSTALL_COMMAND_INPUT"
+          fi
+          if [[ -n "$CI_LINT_COMMAND_INPUT" ]]; then
+            lint_command="$CI_LINT_COMMAND_INPUT"
+          fi
+          if [[ -n "$CI_TYPECHECK_COMMAND_INPUT" ]]; then
+            typecheck_command="$CI_TYPECHECK_COMMAND_INPUT"
+          fi
+          if [[ -n "$CI_TEST_COMMAND_INPUT" ]]; then
+            test_command="$CI_TEST_COMMAND_INPUT"
+          fi
+          if [[ -n "$CI_COVERAGE_COMMAND_INPUT" ]]; then
+            coverage_command="$CI_COVERAGE_COMMAND_INPUT"
+          fi
+          if [[ -n "$CI_BUILD_COMMAND_INPUT" ]]; then
+            build_command="$CI_BUILD_COMMAND_INPUT"
+          fi
+          if [[ -n "$CI_DOCKER_SMOKE_COMMAND_INPUT" ]]; then
+            docker_smoke_command="$CI_DOCKER_SMOKE_COMMAND_INPUT"
+          fi
+
+          # Build validate-versions: always a non-empty JSON array
+          if [[ "$has_matrix" == "true" ]]; then
+            validate_versions="$matrix_versions"
+          elif [[ -n "$resolved_runtime_version" ]]; then
+            validate_versions="[\"$resolved_runtime_version\"]"
+          else
+            validate_versions="[\"$resolved_profile\"]"
+          fi
+
+          {
+            echo "resolved-ci-profile=$resolved_profile"
+            echo "resolved-codeql-languages=$resolved_codeql_languages"
+            echo "resolved-runtime-version=$resolved_runtime_version"
+            echo "node-version-file=$node_version_file"
+            echo "has-matrix=$has_matrix"
+            echo "matrix-versions=$matrix_versions"
+            echo "validate-versions=$validate_versions"
+
+            echo "setup-command<<EOF"
+            echo "$setup_command"
+            echo "EOF"
+
+            echo "install-command<<EOF"
+            echo "$install_command"
+            echo "EOF"
+
+            echo "lint-command<<EOF"
+            echo "$lint_command"
+            echo "EOF"
+
+            echo "typecheck-command<<EOF"
+            echo "$typecheck_command"
+            echo "EOF"
+
+            echo "test-command<<EOF"
+            echo "$test_command"
+            echo "EOF"
+
+            echo "coverage-command<<EOF"
+            echo "$coverage_command"
+            echo "EOF"
+
+            echo "build-command<<EOF"
+            echo "$build_command"
+            echo "EOF"
+
+            echo "docker-smoke-command<<EOF"
+            echo "$docker_smoke_command"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Emit profile summary
+        shell: bash
+        run: |
+          {
+            echo "## CI Profile Resolution"
+            echo "- Requested profile: ${{ inputs.ci-profile }}"
+            echo "- Resolved profile: ${{ steps.resolve.outputs.resolved-ci-profile }}"
+            echo "- Resolved runtime version: ${{ steps.resolve.outputs.resolved-runtime-version }}"
+            echo "- Resolved CodeQL languages: ${{ steps.resolve.outputs.resolved-codeql-languages }}"
+            echo "- Matrix versions: ${{ steps.resolve.outputs.matrix-versions }}"
+            echo "- Validate versions: ${{ steps.resolve.outputs.validate-versions }}"
+            echo "- Node version file: ${{ steps.resolve.outputs.node-version-file }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  validate:
+    name: Validate
+    runs-on: ${{ inputs.ci-runs-on }}
+    needs: [resolve-profile]
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ${{ fromJSON(needs.resolve-profile.outputs.validate-versions) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Gitleaks
+        id: gitleaks
+        if: ${{ inputs.enable-gitleaks && matrix.version == fromJSON(needs.resolve-profile.outputs.validate-versions)[0] }}
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+      - name: Setup Node.js (version file)
+        if: ${{ (needs.resolve-profile.outputs.resolved-ci-profile == 'node' || needs.resolve-profile.outputs.resolved-ci-profile == 'node-bun') && needs.resolve-profile.outputs.node-version-file != '' && needs.resolve-profile.outputs.has-matrix != 'true' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ${{ needs.resolve-profile.outputs.node-version-file }}
+
+      - name: Setup Node.js (explicit version)
+        if: ${{ (needs.resolve-profile.outputs.resolved-ci-profile == 'node' || needs.resolve-profile.outputs.resolved-ci-profile == 'node-bun') && (needs.resolve-profile.outputs.node-version-file == '' || needs.resolve-profile.outputs.has-matrix == 'true') }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.version }}
+
+      - name: Cache npm dependencies
+        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'node' }}
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ matrix.version }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-npm-${{ matrix.version }}-
+
+      - name: Setup Python
+        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'python' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.version }}
+          cache: pip
+
+      - name: Setup Go
+        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'go' }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.version }}
+
+      - name: Setup Rust
+        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'rust' }}
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.version }}
+          components: clippy
+
+      - name: Setup Java
+        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'java' }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.version }}
+
+      - name: Setup Bun
+        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'node-bun' }}
+        uses: oven-sh/setup-bun@v2
+
+      - name: Run setup command
+        if: ${{ needs.resolve-profile.outputs.setup-command != '' }}
+        shell: bash
+        run: |
+          export CI_MATRIX_VERSION='${{ matrix.version }}'
+          ${{ needs.resolve-profile.outputs.setup-command }}
+
+      - name: Run install command
+        if: ${{ needs.resolve-profile.outputs.install-command != '' }}
+        shell: bash
+        run: |
+          export CI_MATRIX_VERSION='${{ matrix.version }}'
+          ${{ needs.resolve-profile.outputs.install-command }}
+
+      - name: Run lint command
+        if: ${{ needs.resolve-profile.outputs.lint-command != '' }}
+        shell: bash
+        run: |
+          export CI_MATRIX_VERSION='${{ matrix.version }}'
+          ${{ needs.resolve-profile.outputs.lint-command }}
+
+      - name: Run typecheck command
+        if: ${{ needs.resolve-profile.outputs.typecheck-command != '' }}
+        shell: bash
+        run: |
+          export CI_MATRIX_VERSION='${{ matrix.version }}'
+          ${{ needs.resolve-profile.outputs.typecheck-command }}
+
+      - name: Run test command
+        if: ${{ needs.resolve-profile.outputs.test-command != '' }}
+        shell: bash
+        run: |
+          export CI_MATRIX_VERSION='${{ matrix.version }}'
+          ${{ needs.resolve-profile.outputs.test-command }}
+
+      - name: Run coverage command
+        if: ${{ needs.resolve-profile.outputs.coverage-command != '' }}
+        shell: bash
+        run: |
+          export CI_MATRIX_VERSION='${{ matrix.version }}'
+          ${{ needs.resolve-profile.outputs.coverage-command }}
+
+      - name: Run build command
+        if: ${{ needs.resolve-profile.outputs.build-command != '' }}
+        shell: bash
+        run: |
+          export CI_MATRIX_VERSION='${{ matrix.version }}'
+          ${{ needs.resolve-profile.outputs.build-command }}
+
+      - name: Run docker smoke command
+        if: ${{ needs.resolve-profile.outputs.docker-smoke-command != '' }}
+        shell: bash
+        run: |
+          export CI_MATRIX_VERSION='${{ matrix.version }}'
+          ${{ needs.resolve-profile.outputs.docker-smoke-command }}
+
+      - name: Check Gitleaks result
+        if: ${{ inputs.enable-gitleaks && matrix.version == fromJSON(needs.resolve-profile.outputs.validate-versions)[0] && steps.gitleaks.outcome == 'failure' }}
+        shell: bash
+        run: |
+          echo "::error::Gitleaks security scan failed — secrets detected in repository"
+          exit 1
+
+

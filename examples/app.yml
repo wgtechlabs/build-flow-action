@@ -1,4 +1,4 @@
-name: Example - App Build Flow
+name: Build Flow
 
 on:
   pull_request:
@@ -7,26 +7,55 @@ on:
     branches: [dev, main]
   workflow_dispatch:
 
+# Full configuration reference for app.yml.
+# Most inputs have sensible defaults — you only need to specify what you want to override.
+# For a minimal setup, see examples/minimal.yml.
+
 jobs:
   build-flow:
     uses: wgtechlabs/build-flow-action/.github/workflows/app.yml@main
     secrets: inherit
     with:
+      # CI configuration
+      ci-profile: node-bun
+      ci-runtime-version: '22'
+      ci-matrix-versions: '["20","22"]'
+      ci-runs-on: ubuntu-latest
+      ci-install-command: bun install --frozen-lockfile || npm ci
+      ci-lint-command: bun run lint || npm run lint --if-present
+      ci-typecheck-command: bun run typecheck || npm run typecheck --if-present
+      ci-test-command: bun test || npm test --if-present
+      ci-build-command: bun run build || npm run build --if-present
+
+      # Security gates
+      enable-gitleaks: true
+      enable-codeql: true
+      codeql-languages: auto
+      codeql-build-mode: autobuild
+
+      # Publishing gates
       enable-package: true
       enable-container: true
       enable-release: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-      enable-codeql: false
+
+      # Branch strategy
       main-branch: main
       dev-branch: dev
       publish-dev-artifacts: false
       publish-pr-artifacts: false
       publish-manual-artifacts: false
+
+      # Package configuration
       package-registry: both
       package-dry-run: false
+
+      # Container configuration
       container-registry: both
       container-image-name: ''
       container-tag-prefix: ''
       container-tag-suffix: ''
+
+      # Release configuration
       release-changelog-path: ./CHANGELOG.md
       release-draft: false
       release-prerelease: false

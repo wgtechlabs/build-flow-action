@@ -11,6 +11,12 @@ jobs:
     secrets: inherit
     with:
       enable-release: ${{ github.ref == 'refs/heads/main' }}
+      enable-gitleaks: true
+      enable-codeql: true
+      ci-profile: python
+      ci-matrix-versions: '["3.11","3.12"]'
+      ci-install-command: pip install -r requirements.txt
+      ci-test-command: pytest -q
       main-branch: main
       dev-branch: dev
       publish-dev-artifacts: false
