@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Build Flow Action — Build first. Release last.</title>
+  <meta name="description" content="One workflow. Full CI, security, packaging, containers, and releases — safe by default. Reusable-workflow-first orchestration for GitHub Actions.">
+  <meta name="theme-color" content="#016EEA">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Build Flow Action — CI &amp; Release Orchestration">
+  <meta property="og:description" content="One workflow. Full CI, security, packaging, containers, and releases — safe by default.">
+  <meta property="og:type" content="website">
+
+  <!-- Favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚂</text></svg>">
+
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="nav" id="nav">
+    <div class="nav-inner">
+      <a href="#hero" class="nav-logo">🚂 Build Flow</a>
+      <button type="button" class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation" aria-controls="nav-links" aria-expanded="false">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <ul class="nav-links" id="nav-links">
+        <li><a href="#why">Why</a></li>
+        <li><a href="#how">How It Works</a></li>
+        <li><a href="#ecosystems">Ecosystems</a></li>
+        <li><a href="#workflows">Workflows</a></li>
+        <li><a href="#setup">Setup</a></li>
+        <li><a href="https://github.com/wgtechlabs/build-flow-action" target="_blank" rel="noopener noreferrer" class="nav-github">GitHub</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <header class="hero" id="hero">
+    <div class="hero-content">
+      <div class="hero-badge">Open Source &middot; MIT</div>
+      <h1>Build Flow Action <span class="hero-emoji">🚂</span></h1>
+      <p class="hero-tagline">One workflow. Full CI, security, packaging, containers, and releases — safe by default. Reusable-workflow-first orchestration by WG Technology Labs.</p>
+      <div class="hero-actions">
+        <a href="#setup" class="btn btn-primary">Get Started</a>
+        <a href="https://github.com/wgtechlabs/build-flow-action" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">View on GitHub</a>
+      </div>
+      <div class="hero-philosophy">
+        <span>Build first. Release last.</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Why Build Flow -->
+  <section class="section" id="why">
+    <div class="container">
+      <h2 class="section-title">Why Build Flow?</h2>
+      <p class="section-subtitle">Stop manually wiring separate workflows. Let Build Flow orchestrate your entire lifecycle.</p>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">🔒</div>
+          <h3>Safe by Default</h3>
+          <p>Releases are always published last — after all artifacts succeed. No more public releases with missing builds.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔍</div>
+          <h3>Auto-Detection</h3>
+          <p>Detects your ecosystem from lockfiles and manifests. Zero config for most projects — just add one workflow file.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🛡️</div>
+          <h3>Built-in Security</h3>
+          <p>Gitleaks and CodeQL scanning enabled by default. Secrets detection gates releases. Static analysis runs in parallel.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📦</div>
+          <h3>Full Lifecycle</h3>
+          <p>CI, security scanning, package publishing, container builds, and GitHub Releases — all from a single workflow call.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🧹</div>
+          <h3>Clean PRs</h3>
+          <p>Smart check visibility means only relevant checks appear on your pull requests. No skipped-job noise.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <h3>Matrix Testing</h3>
+          <p>Test across multiple runtime versions automatically with built-in dependency caching for fast iterations.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How It Works -->
+  <section class="section section-alt" id="how">
+    <div class="container">
+      <h2 class="section-title">How It Works</h2>
+      <p class="section-subtitle">A safe dependency graph ensures nothing ships until everything passes.</p>
+      <div class="pipeline">
+        <div class="pipeline-step">
+          <div class="pipeline-number">1</div>
+          <div class="pipeline-content">
+            <h3>Context Detection</h3>
+            <p>Determines branch, event type, and policy gates.</p>
+          </div>
+        </div>
+        <div class="pipeline-connector"></div>
+        <div class="pipeline-step">
+          <div class="pipeline-number">2</div>
+          <div class="pipeline-content">
+            <h3>CI Gate</h3>
+            <p>Install, lint, typecheck, test, build — plus Gitleaks secret scanning.</p>
+          </div>
+        </div>
+        <div class="pipeline-connector"></div>
+        <div class="pipeline-fan">
+          <div class="pipeline-fan-label">parallel after CI</div>
+          <div class="pipeline-fan-items">
+            <div class="pipeline-step pipeline-step-sm">
+              <div class="pipeline-number">3a</div>
+              <div class="pipeline-content">
+                <h3>Package Publishing</h3>
+                <p>npm, PyPI, GitHub Packages</p>
+              </div>
+            </div>
+            <div class="pipeline-step pipeline-step-sm">
+              <div class="pipeline-number">3b</div>
+              <div class="pipeline-content">
+                <h3>Container Publishing</h3>
+                <p>Docker Hub, GHCR</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="pipeline-connector"></div>
+        <div class="pipeline-step pipeline-step-final">
+          <div class="pipeline-number">4</div>
+          <div class="pipeline-content">
+            <h3>Release Finalization</h3>
+            <p>GitHub Release created <strong>last</strong> — only after all artifacts succeed.</p>
+          </div>
+        </div>
+      </div>
+      <div class="pipeline-aside">
+        <span>CodeQL runs independently in parallel — does not gate publishing or release.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Supported Ecosystems -->
+  <section class="section" id="ecosystems">
+    <div class="container">
+      <h2 class="section-title">Supported Ecosystems</h2>
+      <p class="section-subtitle">Auto-detected from your lockfiles and manifests. Or bring your own.</p>
+      <div class="eco-grid">
+        <div class="eco-card">
+          <div class="eco-icon">🟢</div>
+          <h3>Node.js + Bun</h3>
+          <div class="eco-detect">bun.lockb, bun.lock</div>
+          <p>install, lint, typecheck, test, build</p>
+        </div>
+        <div class="eco-card">
+          <div class="eco-icon">🟩</div>
+          <h3>Node.js</h3>
+          <div class="eco-detect">package.json</div>
+          <p>npm ci, lint, typecheck, test, build</p>
+        </div>
+        <div class="eco-card">
+          <div class="eco-icon">🐍</div>
+          <h3>Python</h3>
+          <div class="eco-detect">pyproject.toml, requirements.txt</div>
+          <p>pip install, pytest</p>
+        </div>
+        <div class="eco-card">
+          <div class="eco-icon">🐹</div>
+          <h3>Go</h3>
+          <div class="eco-detect">go.mod</div>
+          <p>go build, go test</p>
+        </div>
+        <div class="eco-card">
+          <div class="eco-icon">🦀</div>
+          <h3>Rust</h3>
+          <div class="eco-detect">Cargo.toml</div>
+          <p>cargo build, cargo test, cargo clippy</p>
+        </div>
+        <div class="eco-card">
+          <div class="eco-icon">☕</div>
+          <h3>Java</h3>
+          <div class="eco-detect">pom.xml, build.gradle</div>
+          <p>gradlew/mvn build and test</p>
+        </div>
+        <div class="eco-card">
+          <div class="eco-icon">⚙️</div>
+          <h3>C/C++</h3>
+          <div class="eco-detect">CMakeLists.txt</div>
+          <p>cmake build, ctest</p>
+        </div>
+        <div class="eco-card eco-card-custom">
+          <div class="eco-icon">🔧</div>
+          <h3>Custom</h3>
+          <div class="eco-detect">your commands</div>
+          <p>Bring your own install, lint, test, build</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Available Workflows -->
+  <section class="section section-alt" id="workflows">
+    <div class="container">
+      <h2 class="section-title">Available Workflows</h2>
+      <p class="section-subtitle">Pick the level of orchestration you need.</p>
+      <div class="workflow-grid">
+        <div class="workflow-card workflow-card-primary">
+          <div class="workflow-badge">Recommended</div>
+          <h3>app.yml</h3>
+          <p>Full orchestration: CI + security + package + container + release.</p>
+          <code>uses: wgtechlabs/build-flow-action/.github/workflows/app.yml@main</code>
+        </div>
+        <div class="workflow-card">
+          <h3>ci.yml</h3>
+          <p>CI and security validation only. No publishing or releases.</p>
+          <code>uses: wgtechlabs/build-flow-action/.github/workflows/ci.yml@main</code>
+        </div>
+        <div class="workflow-card">
+          <h3>package.yml</h3>
+          <p>CI + package publishing + release finalization.</p>
+          <code>uses: wgtechlabs/build-flow-action/.github/workflows/package.yml@main</code>
+        </div>
+        <div class="workflow-card">
+          <h3>container.yml</h3>
+          <p>CI + container publishing + release finalization.</p>
+          <code>uses: wgtechlabs/build-flow-action/.github/workflows/container.yml@main</code>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Getting Started -->
+  <section class="section" id="setup">
+    <div class="container">
+      <h2 class="section-title">Getting Started</h2>
+      <p class="section-subtitle">Add one file. That's it.</p>
+      <div class="setup-steps">
+        <div class="setup-step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <h3>Create the Workflow File</h3>
+            <p>Add a single workflow file to your repository.</p>
+            <code>.github/workflows/build-flow.yml</code>
+          </div>
+        </div>
+        <div class="setup-step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <h3>Add the Zero-Config Setup</h3>
+            <p>Build Flow auto-detects your project. No configuration needed for most projects.</p>
+            <div class="code-block">
+              <pre><code>name: Build Flow
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+
+jobs:
+  build-flow:
+    uses: wgtechlabs/build-flow-action/.github/workflows/app.yml@main
+    secrets: inherit</code></pre>
+            </div>
+          </div>
+        </div>
+        <div class="setup-step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <h3>Push and Merge</h3>
+            <p>Build Flow handles everything from here — CI, security, packaging, and releases.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Branch Strategy -->
+  <section class="section section-alt" id="strategy">
+    <div class="container">
+      <h2 class="section-title">Branch Strategy</h2>
+      <p class="section-subtitle">Designed for <a href="https://github.com/wgtechlabs/clean-flow" target="_blank" rel="noopener noreferrer">Clean Flow</a>. Works with any branch model.</p>
+      <div class="strategy-grid">
+        <div class="strategy-card">
+          <div class="strategy-event">PR to dev or main</div>
+          <div class="strategy-action">CI + security gates</div>
+        </div>
+        <div class="strategy-card">
+          <div class="strategy-event">Push to dev</div>
+          <div class="strategy-action">CI + dev artifact publishing</div>
+        </div>
+        <div class="strategy-card">
+          <div class="strategy-event">Push to main</div>
+          <div class="strategy-action">CI + publish + release</div>
+        </div>
+        <div class="strategy-card">
+          <div class="strategy-event">Manual dispatch</div>
+          <div class="strategy-action">Configurable recovery</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Ecosystem -->
+  <section class="section" id="ecosystem">
+    <div class="container">
+      <h2 class="section-title">Part of the Build Flow Ecosystem</h2>
+      <p class="section-subtitle">Build Flow orchestrates these WG Technology Labs primitives internally.</p>
+      <div class="eco-actions-grid">
+        <div class="eco-action-card">
+          <h3>release-build-flow-action</h3>
+          <p>Release automation — tag creation and GitHub Release finalization.</p>
+          <a href="https://github.com/wgtechlabs/release-build-flow-action" target="_blank" rel="noopener noreferrer">View on GitHub &rarr;</a>
+        </div>
+        <div class="eco-action-card">
+          <h3>package-build-flow-action</h3>
+          <p>Package publishing — npm, PyPI, GitHub Packages.</p>
+          <a href="https://github.com/wgtechlabs/package-build-flow-action" target="_blank" rel="noopener noreferrer">View on GitHub &rarr;</a>
+        </div>
+        <div class="eco-action-card">
+          <h3>container-build-flow-action</h3>
+          <p>Container publishing — Docker Hub, GHCR.</p>
+          <a href="https://github.com/wgtechlabs/container-build-flow-action" target="_blank" rel="noopener noreferrer">View on GitHub &rarr;</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <span class="footer-logo">🚂 Build Flow Action</span>
+          <p>Build first. Release last.</p>
+        </div>
+        <div class="footer-links">
+          <div class="footer-col">
+            <h4>Project</h4>
+            <ul>
+              <li><a href="https://github.com/wgtechlabs/build-flow-action" target="_blank" rel="noopener noreferrer">GitHub</a></li>
+              <li><a href="https://github.com/wgtechlabs/build-flow-action/blob/main/docs/architecture.md" target="_blank" rel="noopener noreferrer">Architecture</a></li>
+              <li><a href="https://github.com/wgtechlabs/build-flow-action/tree/main/examples" target="_blank" rel="noopener noreferrer">Examples</a></li>
+              <li><a href="https://github.com/wgtechlabs/build-flow-action/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">License (MIT)</a></li>
+            </ul>
+          </div>
+          <div class="footer-col">
+            <h4>WG Tech Labs</h4>
+            <ul>
+              <li><a href="https://github.com/wgtechlabs" target="_blank" rel="noopener noreferrer">GitHub Org</a></li>
+              <li><a href="https://github.com/wgtechlabs/clean-flow" target="_blank" rel="noopener noreferrer">Clean Flow</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; <span id="year"></span> <a href="https://github.com/wgtechlabs" target="_blank" rel="noopener noreferrer">WG Tech Labs</a>. Released under the MIT License.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
