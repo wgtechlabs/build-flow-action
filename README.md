@@ -83,15 +83,15 @@ All profiles support overriding individual commands via `ci-*-command` inputs.
 
 ## What You Get
 
-When you call `app.yml`, Build Flow runs this sequence automatically:
+When you call `app.yml`, Build Flow runs this dependency graph:
 
 ```
 1. Context Detection     → determines branch, event, and policy
-2. CI Gate               → install, lint, typecheck, test, build (matrix support)
-3. Security Gate         → Gitleaks + CodeQL (only when enabled and applicable)
-4. Package Publishing    → delegates to package-build-flow-action
-5. Container Publishing  → delegates to container-build-flow-action
-6. Release Finalization  → creates GitHub Release LAST (only after all gates pass)
+2. CI Gate               → install, lint, typecheck, test, build + Gitleaks (matrix support)
+   ├── 3a. Package Publishing  → delegates to package-build-flow-action
+   ├── 3b. Container Publishing → delegates to container-build-flow-action
+   └── 4. Release Finalization  → creates GitHub Release LAST (after package + container)
+   CodeQL (parallel)     → independent security scan (does not gate publishing or release)
 ```
 
 Key behaviors:
