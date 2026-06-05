@@ -1,0 +1,19 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+
+# CI-only: runs lint, typecheck, test, build, and Gitleaks.
+# No package publishing, container builds, or releases.
+# Use this when you only need validation without the full release orchestration.
+
+jobs:
+  ci:
+    uses: wgtechlabs/build-flow-action/.github/workflows/ci.yml@main
+    secrets: inherit
+    with:
+      ci-profile: auto
