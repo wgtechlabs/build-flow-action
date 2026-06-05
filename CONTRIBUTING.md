@@ -8,6 +8,7 @@ Thanks for contributing to Build Flow Action.
 - Keep pull requests focused and coherent.
 - Update docs and examples when behavior changes.
 - Prefer safe-by-default orchestration decisions.
+- Do not manually edit `CHANGELOG.md`; changelog updates are owned by the release-build-flow primitive.
 
 ## Local Validation
 
