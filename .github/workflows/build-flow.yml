@@ -1,4 +1,4 @@
-name: Build Flow
+name: Build Flow Dogfood
 
 on:
   pull_request:
@@ -8,11 +8,17 @@ on:
   workflow_dispatch:
 
 jobs:
-  ci:
-    uses: ./.github/workflows/ci.yml
+  dogfood:
+    uses: ./.github/workflows/app.yml
     secrets: inherit
     permissions:
-      contents: read
+      contents: write
     with:
+      enable-package: false
+      enable-container: false
+      enable-release: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       enable-gitleaks: false
+      enable-codeql: false
       ci-profile: custom
+      ci-test-command: echo "Dogfood validation for build-flow-action orchestration"
+      release-dry-run: false
