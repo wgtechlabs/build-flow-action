@@ -225,6 +225,10 @@ jobs:
   ci-gate:
     name: Unified CI gate
     needs: [context]
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
     uses: ./.github/workflows/ci.yml
     secrets: inherit
     with:
