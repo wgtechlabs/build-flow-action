@@ -1,5 +1,8 @@
 # Build Flow Action
 
+[![Build Flow Action - GitHub Repo Banner](https://ghrb.waren.build/banner?header=Build+Flow+Action+%F0%9F%9A%82&subheader=Reusable-workflow-first+CI%2C+package%2C+container%2C+and+release+orchestration&bg=013B84-016EEA&color=FFFFFF)](https://github.com/wgtechlabs/build-flow-action)
+<!-- Created with GitHub Repo Banner by Waren Gonzaga: https://ghrb.waren.build -->
+
 One workflow. Full CI, security, packaging, containers, and releases — safe by default.
 
 Build Flow Action is the orchestration layer by [WG Technology Labs](https://github.com/wgtechlabs) that coordinates your entire build and release lifecycle through a single reusable workflow call.
