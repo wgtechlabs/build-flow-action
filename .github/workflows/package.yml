@@ -29,10 +29,20 @@ on:
         type: string
         default: autobuild
       ci-profile:
-        description: CI profile (auto|node-bun|node|python|go|java|c-cpp|custom)
+        description: CI profile (auto|node-bun|node|python|go|rust|java|c-cpp|custom)
         required: false
         type: string
         default: auto
+      ci-runs-on:
+        description: Runner label for CI jobs (e.g., ubuntu-latest, macos-latest, self-hosted)
+        required: false
+        type: string
+        default: ubuntu-latest
+      ci-runtime-version:
+        description: Runtime version for non-matrix validation (e.g., 22 for Node, 3.13 for Python)
+        required: false
+        type: string
+        default: ''
       ci-matrix-versions:
         description: 'JSON array of runtime versions (example: ["20","22"])'
         required: false
@@ -223,6 +233,8 @@ jobs:
       codeql-languages: ${{ inputs.codeql-languages }}
       codeql-build-mode: ${{ inputs.codeql-build-mode }}
       ci-profile: ${{ inputs.ci-profile }}
+      ci-runs-on: ${{ inputs.ci-runs-on }}
+      ci-runtime-version: ${{ inputs.ci-runtime-version }}
       ci-matrix-versions: ${{ inputs.ci-matrix-versions }}
       ci-setup-command: ${{ inputs.ci-setup-command }}
       ci-install-command: ${{ inputs.ci-install-command }}

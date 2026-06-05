@@ -1,0 +1,22 @@
+name: Build Flow (dogfood)
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+
+jobs:
+  flow:
+    uses: ./.github/workflows/app.yml
+    secrets: inherit
+    with:
+      enable-package: false
+      enable-container: false
+      enable-release: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      enable-gitleaks: true
+      enable-codeql: false
+      ci-profile: custom
+      main-branch: main
+      dev-branch: dev

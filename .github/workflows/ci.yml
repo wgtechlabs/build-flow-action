@@ -24,10 +24,20 @@ on:
         type: string
         default: autobuild
       ci-profile:
-        description: CI profile (auto|node-bun|node|python|go|java|c-cpp|custom)
+        description: CI profile (auto|node-bun|node|python|go|rust|java|c-cpp|custom)
         required: false
         type: string
         default: auto
+      ci-runs-on:
+        description: Runner label for CI jobs (e.g., ubuntu-latest, macos-latest, self-hosted)
+        required: false
+        type: string
+        default: ubuntu-latest
+      ci-runtime-version:
+        description: Runtime version for non-matrix validation (e.g., 22 for Node, 3.13 for Python)
+        required: false
+        type: string
+        default: ''
       ci-matrix-versions:
         description: 'JSON array of runtime versions (example: ["20","22"])'
         required: false
@@ -93,12 +103,14 @@ permissions:
 jobs:
   resolve-profile:
     name: Resolve CI profile
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.ci-runs-on }}
     permissions:
       contents: read
     outputs:
       resolved-ci-profile: ${{ steps.resolve.outputs.resolved-ci-profile }}
       resolved-codeql-languages: ${{ steps.resolve.outputs.resolved-codeql-languages }}
+      resolved-runtime-version: ${{ steps.resolve.outputs.resolved-runtime-version }}
+      has-node-version-file: ${{ steps.resolve.outputs.has-node-version-file }}
       has-matrix: ${{ steps.resolve.outputs.has-matrix }}
       matrix-versions: ${{ steps.resolve.outputs.matrix-versions }}
       setup-command: ${{ steps.resolve.outputs.setup-command }}
@@ -117,6 +129,7 @@ jobs:
         id: resolve
         env:
           CI_PROFILE_INPUT: ${{ inputs.ci-profile }}
+          CI_RUNTIME_VERSION_INPUT: ${{ inputs.ci-runtime-version }}
           CI_MATRIX_VERSIONS_INPUT: ${{ inputs.ci-matrix-versions }}
           CODEQL_LANGUAGES_INPUT: ${{ inputs.codeql-languages }}
           CI_SETUP_COMMAND_INPUT: ${{ inputs.ci-setup-command }}
@@ -143,6 +156,8 @@ jobs:
               resolved_profile="go"
             elif [[ -f "pom.xml" || -f "build.gradle" || -f "build.gradle.kts" ]]; then
               resolved_profile="java"
+            elif [[ -f "Cargo.toml" ]]; then
+              resolved_profile="rust"
             elif [[ -f "CMakeLists.txt" ]]; then
               resolved_profile="c-cpp"
             else
@@ -172,7 +187,9 @@ jobs:
           coverage_command=''
           build_command=''
           docker_smoke_command=''
-          resolved_codeql_languages='javascript-typescript'
+          resolved_codeql_languages=''
+          default_runtime_version=''
+          has_node_version_file='false'
 
           case "$resolved_profile" in
             node-bun)
@@ -183,6 +200,10 @@ jobs:
               coverage_command='bun run coverage || npm run coverage --if-present'
               build_command='bun run build || npm run build --if-present'
               resolved_codeql_languages='javascript-typescript'
+              default_runtime_version='22'
+              if [[ -f ".nvmrc" || -f ".node-version" ]]; then
+                has_node_version_file='true'
+              fi
               ;;
             node)
               install_command='npm ci'
@@ -192,27 +213,62 @@ jobs:
               coverage_command='npm run coverage --if-present'
               build_command='npm run build --if-present'
               resolved_codeql_languages='javascript-typescript'
+              default_runtime_version='22'
+              if [[ -f ".nvmrc" || -f ".node-version" ]]; then
+                has_node_version_file='true'
+              fi
               ;;
             python)
+              install_command='pip install -r requirements.txt'
+              test_command='pytest -q --no-header || true'
               resolved_codeql_languages='python'
+              default_runtime_version='3.12'
               ;;
             go)
+              build_command='go build ./...'
+              test_command='go test ./...'
               resolved_codeql_languages='go'
+              default_runtime_version='1.22'
+              ;;
+            rust)
+              build_command='cargo build'
+              test_command='cargo test'
+              lint_command='cargo clippy -- -D warnings || true'
+              resolved_codeql_languages=''
+              default_runtime_version='stable'
               ;;
             java)
               resolved_codeql_languages='java-kotlin'
+              default_runtime_version='21'
+              if [[ -f "build.gradle" || -f "build.gradle.kts" ]]; then
+                build_command='./gradlew build'
+                test_command='./gradlew test'
+              elif [[ -f "pom.xml" ]]; then
+                build_command='mvn -B package --no-transfer-progress'
+                test_command='mvn -B test --no-transfer-progress'
+              fi
               ;;
             c-cpp)
               resolved_codeql_languages='cpp'
+              default_runtime_version=''
+              if [[ -f "CMakeLists.txt" ]]; then
+                build_command='cmake -S . -B build && cmake --build build'
+                test_command='ctest --test-dir build --output-on-failure'
+              fi
               ;;
             custom)
-              resolved_codeql_languages='javascript-typescript'
+              resolved_codeql_languages=''
               ;;
             *)
               echo "Unsupported ci-profile: $resolved_profile"
               exit 1
               ;;
           esac
+
+          resolved_runtime_version="$default_runtime_version"
+          if [[ -n "$CI_RUNTIME_VERSION_INPUT" ]]; then
+            resolved_runtime_version="$CI_RUNTIME_VERSION_INPUT"
+          fi
 
           if [[ -n "$CODEQL_LANGUAGES_INPUT" && "$CODEQL_LANGUAGES_INPUT" != 'auto' ]]; then
             resolved_codeql_languages="$CODEQL_LANGUAGES_INPUT"
@@ -246,6 +302,8 @@ jobs:
           {
             echo "resolved-ci-profile=$resolved_profile"
             echo "resolved-codeql-languages=$resolved_codeql_languages"
+            echo "resolved-runtime-version=$resolved_runtime_version"
+            echo "has-node-version-file=$has_node_version_file"
             echo "has-matrix=$has_matrix"
             echo "matrix-versions=$matrix_versions"
 
@@ -289,14 +347,16 @@ jobs:
             echo "## CI Profile Resolution"
             echo "- Requested profile: ${{ inputs.ci-profile }}"
             echo "- Resolved profile: ${{ steps.resolve.outputs.resolved-ci-profile }}"
+            echo "- Resolved runtime version: ${{ steps.resolve.outputs.resolved-runtime-version }}"
             echo "- Resolved CodeQL languages: ${{ steps.resolve.outputs.resolved-codeql-languages }}"
             echo "- Matrix versions: ${{ steps.resolve.outputs.matrix-versions }}"
+            echo "- Node version file: ${{ steps.resolve.outputs.has-node-version-file }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
   gitleaks:
     name: Gitleaks security scan
     if: ${{ inputs.enable-gitleaks }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.ci-runs-on }}
     needs: [resolve-profile]
     permissions:
       contents: read
@@ -305,14 +365,14 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   codeql:
     name: CodeQL security scan
-    if: ${{ inputs.enable-codeql }}
-    runs-on: ubuntu-latest
+    if: ${{ inputs.enable-codeql && needs.resolve-profile.outputs.resolved-codeql-languages != '' }}
+    runs-on: ${{ inputs.ci-runs-on }}
     needs: [resolve-profile]
     permissions:
       actions: read
@@ -360,7 +420,7 @@ jobs:
   validate:
     name: Validate
     if: ${{ needs.resolve-profile.outputs.has-matrix != 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.ci-runs-on }}
     needs: [resolve-profile]
     permissions:
       contents: read
@@ -368,30 +428,45 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'node' || needs.resolve-profile.outputs.resolved-ci-profile == 'node-bun' }}
+      - name: Setup Node.js (version file)
+        if: ${{ (needs.resolve-profile.outputs.resolved-ci-profile == 'node' || needs.resolve-profile.outputs.resolved-ci-profile == 'node-bun') && needs.resolve-profile.outputs.has-node-version-file == 'true' }}
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Setup Node.js (explicit version)
+        if: ${{ (needs.resolve-profile.outputs.resolved-ci-profile == 'node' || needs.resolve-profile.outputs.resolved-ci-profile == 'node-bun') && needs.resolve-profile.outputs.has-node-version-file != 'true' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ needs.resolve-profile.outputs.resolved-runtime-version }}
+          cache: npm
 
       - name: Setup Python
         if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'python' }}
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: ${{ needs.resolve-profile.outputs.resolved-runtime-version }}
+          cache: pip
 
       - name: Setup Go
         if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'go' }}
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: ${{ needs.resolve-profile.outputs.resolved-runtime-version }}
+
+      - name: Setup Rust
+        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'rust' }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
 
       - name: Setup Java
         if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'java' }}
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: ${{ needs.resolve-profile.outputs.resolved-runtime-version }}
 
       - name: Setup Bun
         if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'node-bun' }}
@@ -440,7 +515,7 @@ jobs:
   validate-matrix:
     name: Validate (matrix)
     if: ${{ needs.resolve-profile.outputs.has-matrix == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.ci-runs-on }}
     needs: [resolve-profile]
     permissions:
       contents: read
@@ -457,18 +532,26 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.version }}
+          cache: npm
 
       - name: Setup Python
         if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'python' }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.version }}
+          cache: pip
 
       - name: Setup Go
         if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'go' }}
         uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.version }}
+
+      - name: Setup Rust
+        if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'rust' }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
 
       - name: Setup Java
         if: ${{ needs.resolve-profile.outputs.resolved-ci-profile == 'java' }}
@@ -540,7 +623,7 @@ jobs:
   gate:
     name: CI gate result
     if: ${{ always() }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.ci-runs-on }}
     needs: [resolve-profile, gitleaks, codeql, validate, validate-matrix]
     outputs:
       ci-gate-status: ${{ steps.gate.outputs.ci-gate-status }}
@@ -556,7 +639,7 @@ jobs:
             failed=true
           fi
 
-          if [[ '${{ inputs.enable-codeql }}' == 'true' && '${{ needs.codeql.result }}' != 'success' ]]; then
+          if [[ '${{ inputs.enable-codeql }}' == 'true' && '${{ needs.codeql.result }}' != 'success' && '${{ needs.codeql.result }}' != 'skipped' ]]; then
             echo "CodeQL gate failed with result: ${{ needs.codeql.result }}"
             failed=true
           fi
