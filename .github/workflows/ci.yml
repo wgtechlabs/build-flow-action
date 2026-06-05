@@ -212,7 +212,7 @@ jobs:
               ;;
             python)
               install_command='if [ -f requirements.txt ]; then pip install -r requirements.txt; else pip install .; fi'
-              test_command='pytest -q --no-header || true'
+              test_command='pytest -q --no-header'
               resolved_codeql_languages='python'
               default_runtime_version='3.12'
               ;;
@@ -225,7 +225,7 @@ jobs:
             rust)
               build_command='cargo build'
               test_command='cargo test'
-              lint_command='cargo clippy -- -D warnings || true'
+              lint_command='cargo clippy -- -D warnings'
               resolved_codeql_languages=''
               default_runtime_version='stable'
               ;;
