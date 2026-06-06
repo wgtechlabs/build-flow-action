@@ -182,6 +182,8 @@ jobs:
         shell: bash
         env:
           GH_REF: ${{ github.ref }}
+          GH_BASE_REF: ${{ github.base_ref }}
+          GH_PR_MERGED: ${{ github.event.pull_request.merged }}
           INPUT_MAIN_BRANCH: ${{ inputs.main-branch }}
           INPUT_DEV_BRANCH: ${{ inputs.dev-branch }}
           GH_EVENT_NAME: ${{ github.event_name }}
@@ -195,11 +197,11 @@ jobs:
           is_pr=false
           is_manual=false
 
-          if [[ "$GH_REF" == "refs/heads/$INPUT_MAIN_BRANCH" ]]; then
+          if [[ "$GH_REF" == "refs/heads/$INPUT_MAIN_BRANCH" ]] || [[ "$GH_EVENT_NAME" == "pull_request" && "$GH_PR_MERGED" == "true" && "$GH_BASE_REF" == "$INPUT_MAIN_BRANCH" ]]; then
             is_main=true
           fi
 
-          if [[ "$GH_REF" == "refs/heads/$INPUT_DEV_BRANCH" ]]; then
+          if [[ "$GH_REF" == "refs/heads/$INPUT_DEV_BRANCH" ]] || [[ "$GH_EVENT_NAME" == "pull_request" && "$GH_PR_MERGED" == "true" && "$GH_BASE_REF" == "$INPUT_DEV_BRANCH" ]]; then
             is_dev=true
           fi
 

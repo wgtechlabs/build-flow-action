@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Release job condition in `app.yml` referencing wrong job name and non-existent `codeql` dependency.
+- Dogfood release trigger now finalizes release on merged pull requests targeting `main`.
 - `custom` profile incorrectly defaulting CodeQL language to `javascript-typescript`.
 - CodeQL gate now correctly skipped when resolved language is empty.
 - Gitleaks action pinned to commit SHA for supply chain consistency.

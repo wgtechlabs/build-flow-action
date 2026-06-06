@@ -3,12 +3,14 @@ name: Build Flow Dogfood
 on:
   pull_request:
     branches: [dev, main]
+    types: [opened, synchronize, reopened, closed]
   push:
     branches: [dev, main]
   workflow_dispatch:
 
 jobs:
   dogfood:
+    if: ${{ github.event_name != 'pull_request' || github.event.action != 'closed' || github.event.pull_request.merged == true }}
     uses: ./.github/workflows/app.yml
     secrets: inherit
     permissions:
@@ -16,7 +18,7 @@ jobs:
     with:
       enable-package: false
       enable-container: false
-      enable-release: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      enable-release: ${{ github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' }}
       enable-gitleaks: false
       enable-codeql: false
       ci-profile: custom
