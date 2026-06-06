@@ -1,14 +1,16 @@
-name: Build Flow Dogfood
+name: Build Flow
 
 on:
   pull_request:
     branches: [dev, main]
+    types: [closed]
   push:
     branches: [dev, main]
   workflow_dispatch:
 
 jobs:
-  dogfood:
+  ci:
+    if: ${{ github.event_name != 'pull_request' || (github.event.action == 'closed' && github.event.pull_request.merged == true) }}
     uses: ./.github/workflows/app.yml
     secrets: inherit
     permissions:
@@ -16,9 +18,9 @@ jobs:
     with:
       enable-package: false
       enable-container: false
-      enable-release: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      enable-release: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' }}
       enable-gitleaks: false
       enable-codeql: false
       ci-profile: custom
-      ci-test-command: echo "Dogfood validation for build-flow-action orchestration"
+      ci-test-command: echo "Self-test validation for build-flow-action orchestration"
       release-dry-run: false
