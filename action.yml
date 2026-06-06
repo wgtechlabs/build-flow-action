@@ -6,6 +6,10 @@ description: |
 
 author: WG Technology Labs
 
+branding:
+  icon: git-branch
+  color: blue
+
 runs:
   using: composite
   steps:
