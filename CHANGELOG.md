@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [0.1.1] - 2026-06-06
+
+### Changed
+
+- add branding icon and color
+
 ## [0.1.0] - 2026-06-06
 
 ### Added
