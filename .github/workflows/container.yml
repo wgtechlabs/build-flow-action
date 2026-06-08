@@ -239,7 +239,7 @@ jobs:
     needs: [context]
     permissions:
       contents: read
-    uses: ./.github/workflows/ci.yml
+    uses: wgtechlabs/build-flow-action/.github/workflows/ci.yml@main
     secrets: inherit
     with:
       enable-gitleaks: ${{ inputs.enable-gitleaks }}
@@ -265,7 +265,7 @@ jobs:
       actions: read
       contents: read
       security-events: write
-    uses: ./.github/workflows/codeql.yml
+    uses: wgtechlabs/build-flow-action/.github/workflows/codeql.yml@main
     secrets: inherit
     with:
       codeql-languages: ${{ needs.ci-gate.outputs.resolved-codeql-languages }}
