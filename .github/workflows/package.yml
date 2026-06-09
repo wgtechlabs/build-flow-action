@@ -275,7 +275,7 @@ jobs:
       packages: write
     steps:
       - name: Run package primitive
-        uses: wgtechlabs/package-build-flow-action@b794ec3087d39f6e8c2732aebc44715bcfb5a196 # main
+        uses: wgtechlabs/package-build-flow-action@999bc41848a8ee5f86d807ac5eab321a264d54de # main
         with:
           registry: ${{ inputs.package-registry }}
           dry-run: ${{ inputs.package-dry-run }}
