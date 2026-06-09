@@ -124,7 +124,7 @@ uses: wgtechlabs/build-flow-action/.github/workflows/<workflow>@main
 For production safety, prefer:
 
 ```yaml
-uses: wgtechlabs/build-flow-action/.github/workflows/<workflow>@v1
+uses: wgtechlabs/build-flow-action/.github/workflows/<workflow>@v0
 # or pin to a full commit SHA
 ```
 
