@@ -291,7 +291,7 @@ jobs:
     needs: [context]
     permissions:
       contents: read
-    uses: ./.github/workflows/ci.yml
+    uses: wgtechlabs/build-flow-action/.github/workflows/ci.yml@v0
     secrets: inherit
     with:
       enable-gitleaks: ${{ inputs.enable-gitleaks }}
@@ -317,7 +317,7 @@ jobs:
       actions: read
       contents: read
       security-events: write
-    uses: ./.github/workflows/codeql.yml
+    uses: wgtechlabs/build-flow-action/.github/workflows/codeql.yml@v0
     secrets: inherit
     with:
       codeql-languages: ${{ needs.ci-gate.outputs.resolved-codeql-languages }}
@@ -337,7 +337,7 @@ jobs:
       packages: write
     steps:
       - name: Run package primitive
-        uses: wgtechlabs/package-build-flow-action@b794ec3087d39f6e8c2732aebc44715bcfb5a196 # main
+        uses: wgtechlabs/package-build-flow-action@999bc41848a8ee5f86d807ac5eab321a264d54de # main
         with:
           registry: ${{ inputs.package-registry }}
           dry-run: ${{ inputs.package-dry-run }}
