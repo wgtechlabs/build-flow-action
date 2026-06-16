@@ -7,8 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [0.1.2] - 2026-06-16
+
 ### Changed
 
+- use full clone for gitleaks scan (#19)
+- update CHANGELOG.md for v0.1.1
 - promote dev to main (#15)
 
 ## [0.1.1] - 2026-06-06
