@@ -102,17 +102,17 @@ on:
         description: Allow container publishing on dev branch pushes
         required: false
         type: boolean
-        default: false
+        default: true
       publish-pr-artifacts:
         description: Allow container publishing for pull requests
         required: false
         type: boolean
-        default: false
+        default: true
       publish-manual-artifacts:
         description: Allow container publishing for workflow_dispatch runs
         required: false
         type: boolean
-        default: false
+        default: true
       container-registry:
         description: Container registry target for container primitive (docker-hub, ghcr, or both)
         required: false
