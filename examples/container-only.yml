@@ -1,6 +1,8 @@
 name: Example - Container Build Flow
 
 on:
+  pull_request:
+    branches: [dev, main]
   push:
     branches: [dev, main]
   workflow_dispatch:
