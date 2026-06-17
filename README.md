@@ -40,11 +40,11 @@ jobs:
     secrets: inherit
 ```
 
-Build Flow auto-detects your project from lockfiles and manifests — no configuration needed for most projects.
+Build Flow auto-detects your project from lockfiles and manifests. Zero-config gives you CI validation, security scanning, and release finalization. Package and container publishing are opt-in — enable them for your specific project needs.
 
 For production repositories, pin reusable workflow references to a release tag or commit SHA instead of `@main`.
 
-### With Common Options
+### With Package and Container Publishing
 
 ```yaml
 jobs:
@@ -53,11 +53,9 @@ jobs:
     secrets: inherit
     with:
       ci-profile: auto
-      enable-gitleaks: true
-      enable-codeql: true
-      enable-package: true
-      enable-container: true
-      enable-release: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      enable-package: true        # opt-in: publish to npm/GitHub Packages
+      enable-container: true      # opt-in: publish to Docker Hub/GHCR
+      container-registry: docker-hub
 ```
 
 ### CI-Only (no packaging or releases)
@@ -93,11 +91,13 @@ When you call `app.yml`, Build Flow runs this dependency graph:
 ```
 1. Context Detection     → determines branch, event, and policy
 2. CI Gate               → install, lint, typecheck, test, build + Gitleaks (matrix support)
-   ├── 3a. Package Publishing  → delegates to package-build-flow-action
-   ├── 3b. Container Publishing → delegates to container-build-flow-action
+   ├── 3a. Package Publishing  → (opt-in) delegates to package-build-flow-action
+   ├── 3b. Container Publishing → (opt-in) delegates to container-build-flow-action
    └── 4. Release Finalization  → creates GitHub Release LAST (after package + container)
    CodeQL (parallel)     → independent security scan (does not gate publishing or release)
 ```
+
+Default behavior (zero-config): CI + security + release finalization on main. Package and container flows only run when explicitly enabled.
 
 Key behaviors:
 - **Release is always last** — no public release until all artifacts succeed

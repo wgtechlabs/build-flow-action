@@ -10,7 +10,6 @@ jobs:
     uses: wgtechlabs/build-flow-action/.github/workflows/package.yml@main
     secrets: inherit
     with:
-      enable-release: ${{ github.ref == 'refs/heads/main' }}
       enable-gitleaks: true
       enable-codeql: true
       ci-profile: python

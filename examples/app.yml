@@ -36,7 +36,7 @@ jobs:
       # Publishing gates
       enable-package: true
       enable-container: true
-      enable-release: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      # enable-release defaults to true (release is gated to main-branch pushes by policy)
 
       # Branch strategy
       main-branch: main
