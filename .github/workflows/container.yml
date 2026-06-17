@@ -283,7 +283,11 @@ jobs:
     permissions:
       contents: write
       packages: write
+      security-events: write
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Run container primitive
         uses: wgtechlabs/container-build-flow-action@7df0af8c4395db7df1927ef215445cd546e9e3f2 # main
         with:
@@ -293,6 +297,8 @@ jobs:
           tag-suffix: ${{ inputs.container-tag-suffix }}
           main-branch: ${{ inputs.main-branch }}
           dev-branch: ${{ inputs.dev-branch }}
+          dockerhub-username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
   release:
     name: Release finalize (last)

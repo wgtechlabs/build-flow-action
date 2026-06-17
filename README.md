@@ -183,6 +183,20 @@ ci-runtime-version: '22'
 ci-matrix-versions: '["20","22"]'
 ```
 
+## Required Secrets
+
+When using `secrets: inherit`, Build Flow automatically picks up the following secrets from your repository or organization:
+
+| Secret | Required when | Purpose |
+|--------|--------------|---------|
+| `DOCKER_HUB_USERNAME` | `enable-container: true` + `container-registry: docker-hub` or `both` | Docker Hub login username |
+| `DOCKER_HUB_ACCESS_TOKEN` | `enable-container: true` + `container-registry: docker-hub` or `both` | Docker Hub access token |
+| `GITLEAKS_LICENSE` | `enable-gitleaks: true` (default) | Gitleaks license key |
+| `NPM_TOKEN` | `enable-package: true` + `package-registry: npm` or `both` | npm publish token |
+| `CODECOV_TOKEN` | Coverage reporting enabled | Codecov upload token |
+
+GHCR (GitHub Container Registry) authentication uses the built-in `GITHUB_TOKEN` automatically — no extra secret is needed.
+
 ## Ecosystem Relationship
 
 Build Flow orchestrates these WG Technology Labs primitives:
