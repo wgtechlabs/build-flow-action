@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [0.1.4] - 2026-06-17
+
+### Changed
+
+- correct default values for enable-package, enable-container, and enable-release (#22)
+
 ## [0.1.3] - 2026-06-17
 
 ### Changed
