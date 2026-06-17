@@ -7,17 +7,17 @@ on:
         description: Enable package flow orchestration
         required: false
         type: boolean
-        default: true
+        default: false
       enable-container:
         description: Enable container flow orchestration
         required: false
         type: boolean
-        default: true
+        default: false
       enable-release:
         description: Enable release finalization orchestration
         required: false
         type: boolean
-        default: false
+        default: true
       enable-gitleaks:
         description: Enable Gitleaks gate
         required: false

@@ -7,7 +7,7 @@ on:
         description: Enable release finalization
         required: false
         type: boolean
-        default: false
+        default: true
       enable-gitleaks:
         description: Enable Gitleaks gate
         required: false
