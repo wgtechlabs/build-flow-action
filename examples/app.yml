@@ -41,9 +41,9 @@ jobs:
       # Branch strategy
       main-branch: main
       dev-branch: dev
-      publish-dev-artifacts: false
-      publish-pr-artifacts: false
-      publish-manual-artifacts: false
+      # publish-dev-artifacts: true    # artifact publishing enabled by default
+      # publish-pr-artifacts: true      # set to false to restrict to main-only
+      # publish-manual-artifacts: true  # set to false to restrict to main-only
 
       # Package configuration
       package-registry: both

@@ -102,17 +102,17 @@ on:
         description: Allow package publishing on dev branch pushes
         required: false
         type: boolean
-        default: false
+        default: true
       publish-pr-artifacts:
         description: Allow package publishing for pull requests
         required: false
         type: boolean
-        default: false
+        default: true
       publish-manual-artifacts:
         description: Allow package publishing for workflow_dispatch runs
         required: false
         type: boolean
-        default: false
+        default: true
       package-registry:
         description: Package registry target for package primitive (npm, github, or both)
         required: false

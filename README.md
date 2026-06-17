@@ -222,8 +222,8 @@ Build Flow is designed for the [Clean Flow](https://github.com/wgtechlabs/clean-
 
 | Event | Behavior |
 |-------|----------|
-| PR to `dev` or `main` | CI + security gates |
-| Push to `dev` | CI + optional dev artifact publishing |
+| PR to `dev` or `main` | CI + security gates + artifact publishing (enabled by default) |
+| Push to `dev` | CI + artifact publishing (enabled by default) |
 | Push to `main` | CI + publish artifacts + finalize release |
 | Manual dispatch | Configurable operational/recovery scenarios |
 
