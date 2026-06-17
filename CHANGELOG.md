@@ -7,11 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-
-- **BREAKING:** `enable-package` and `enable-container` now default to `false` in `app.yml` (previously `true`). Projects that need package or container publishing must explicitly set `enable-package: true` or `enable-container: true`.
-- **BREAKING:** `enable-release` now defaults to `true` in `app.yml`, `container.yml`, and `package.yml` (previously `false`). Release finalization runs automatically on main-branch pushes. Set `enable-release: false` to opt out.
-
 
 ## [0.1.2] - 2026-06-16
 
