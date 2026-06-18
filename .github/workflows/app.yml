@@ -153,6 +153,11 @@ on:
         required: false
         type: string
         default: ''
+      container-pr-comment-enabled:
+        description: Enable PR comments from container primitive
+        required: false
+        type: boolean
+        default: true
       release-changelog-path:
         description: Changelog path passed to release primitive
         required: false
@@ -366,6 +371,7 @@ jobs:
           image-name: ${{ inputs.container-image-name }}
           tag-prefix: ${{ inputs.container-tag-prefix }}
           tag-suffix: ${{ inputs.container-tag-suffix }}
+          pr-comment-enabled: ${{ inputs.container-pr-comment-enabled }}
           main-branch: ${{ inputs.main-branch }}
           dev-branch: ${{ inputs.dev-branch }}
           dockerhub-username: ${{ secrets.DOCKER_HUB_USERNAME }}
