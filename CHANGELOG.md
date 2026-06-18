@@ -10,9 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.6] - 2026-06-18
 
-### Changed
+### Fixed
 
-- ensure checkout before finalize (#25)
+- add pull-requests write permission to container job for PR comments (#30)
 
 ## [0.1.5] - 2026-06-17
 
