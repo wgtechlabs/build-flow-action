@@ -9,6 +9,14 @@ on:
 
 # Zero-config: Build Flow auto-detects your ecosystem from lockfiles/manifests.
 # No inputs needed for most projects — just call app.yml and inherit secrets.
+# Permissions are still required: reusable-workflow job permissions are capped by
+# the caller, so the defaults (package publish, container publish, release) need these.
+permissions:
+  contents: write
+  packages: write
+  pull-requests: write
+  security-events: write
+  actions: read
 
 jobs:
   build-flow:

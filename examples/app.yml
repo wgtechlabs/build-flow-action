@@ -9,6 +9,15 @@ on:
     types: [published]
   workflow_dispatch:
 
+# Grant the reusable workflow the permissions its primitives need by default.
+# Reusable-workflow job permissions are capped by the caller, so declare them here.
+permissions:
+  contents: write
+  packages: write
+  pull-requests: write
+  security-events: write
+  actions: read
+
 # Full configuration reference for app.yml.
 # Most inputs have sensible defaults — you only need to specify what you want to override.
 # For a minimal setup, see examples/minimal.yml.

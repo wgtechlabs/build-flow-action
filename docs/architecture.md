@@ -248,3 +248,53 @@ Its defining rule is simple:
 > **Build and validate first. Release last.**
 
 Everything in this repository should reinforce that rule.
+
+## Primitive Parity Reference
+
+This project orchestrates three primitives. Each primitive ships its own **default / must-have behavior**, and the orchestration must preserve those defaults rather than silently suppress them. This section is the canonical record of what each primitive expects so the orchestration does not drift again.
+
+Pinned versions (by exact commit SHA in the workflows):
+
+| Primitive | Version | Tag |
+|-----------|---------|-----|
+| `wgtechlabs/container-build-flow-action` | `7df0af8` | v1.8.1 |
+| `wgtechlabs/package-build-flow-action` | `999bc41` | v2.1.2 |
+| `wgtechlabs/release-build-flow-action` | `caae411` | v1.7.0 |
+
+### The override surface
+
+Whenever the orchestration can break a primitive default, it happens through exactly one of three mechanisms. Audit these three whenever a primitive is bumped:
+
+1. **Policy gate + event triggers** — the `context`/policy job decides whether a flow runs. A missing event (e.g. `release: published`) or a too-strict gate suppresses a default flow.
+2. **Job permissions** — reusable-workflow job permissions are capped by the caller. Missing scopes make the primitive's default features (PR comments, SARIF upload, publish, release commit) fail or silently no-op.
+3. **Forwarded input values** — every value forwarded to a primitive must equal that primitive's own default unless a deliberate override is intended. Today no input value diverges from primitive defaults.
+
+### Required permissions per primitive
+
+| Primitive | contents | packages | pull-requests | security-events | actions |
+|-----------|----------|----------|---------------|-----------------|---------|
+| package   | write    | write    | write (PR comments default on) | – | – |
+| container | write    | write    | write (PR comments default on) | write (SARIF) | – |
+| release   | write    | –        | – | – | – |
+| codeql gate | read   | –        | – | write | read |
+
+Because reusable-workflow permissions are bounded by the caller, **example caller workflows must declare these scopes too** — otherwise the primitive defaults are silently capped.
+
+### Required secrets / inputs per primitive
+
+- **package**: `npm-token` (`secrets.NPM_TOKEN`) is mandatory when `registry` includes npm (default `both`); the primitive hard-fails without it. The package primitive checks out its own repo internally (`fetch-depth: 0`) when no manifest is present, so the package job needs no external checkout.
+- **container**: `dockerhub-username` / `dockerhub-token` for Docker Hub (default registry `both`). The container job **must** check out the repo and **must** run `docker/setup-qemu-action` before the primitive, because the default `release-platforms` is multi-arch (`linux/amd64,linux/arm64`) and the primitive sets up buildx without QEMU.
+- **release**: requires `actions/checkout` with `fetch-depth: 0` before it runs (it reads full git history via `git log tag..HEAD`). Every workflow that finalizes a release must include this checkout.
+
+### Must-have defaults preserved (do not override)
+
+- Package: dual-registry publish, `pr-comment-enabled`, branch-aware flow detection.
+- Container: dual-registry, Trivy source/dockerfile/image scans, SARIF upload, SBOM, provenance, bot-detection, PR comments.
+- Release: `sync-version-files: true` (auto-syncs manifest versions), `commit-changelog: true`, `create-release: true`, `commit-convention: clean-commit`, first release patch-bumps from `initial-version`.
+
+### Intentional divergences (by design — documented, not bugs)
+
+- **`update-major-tag` defaults to `false`** in the release primitive. The orchestration exposes a passthrough input `release-update-major-tag` (default `false` to match the primitive). Action-repo consumers that want the floating `vN` tag to move should set it to `true`.
+- **WIP-flow gate**: the orchestration applies its own convention/branch gate before primitives, which is stricter than a primitive run in isolation.
+- **`workflow_dispatch` and unknown events** resolve to the primitives' `wip` flow.
+- **GitHub releases created with `GITHUB_TOKEN`** do not trigger downstream `release:`-triggered workflows; the orchestration sequences artifact publishing before release finalize so it does not rely on the `release` event as the sole production trigger.

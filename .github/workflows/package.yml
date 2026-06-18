@@ -153,6 +153,11 @@ on:
         required: false
         type: boolean
         default: true
+      release-update-major-tag:
+        description: Move the major version tag (vN) to the new release in release primitive
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -281,6 +286,7 @@ jobs:
     permissions:
       contents: write
       packages: write
+      pull-requests: write
     steps:
       - name: Run package primitive
         uses: wgtechlabs/package-build-flow-action@999bc41848a8ee5f86d807ac5eab321a264d54de # main
@@ -289,6 +295,7 @@ jobs:
           dry-run: ${{ inputs.package-dry-run }}
           main-branch: ${{ inputs.main-branch }}
           dev-branch: ${{ inputs.dev-branch }}
+          npm-token: ${{ secrets.NPM_TOKEN }}
 
   release:
     name: Release finalize (last)
@@ -298,6 +305,11 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Run release primitive (finalize)
         uses: wgtechlabs/release-build-flow-action@caae4110eb1768fda7b73cf2a86a10f3697cdf6b # main
         with:
@@ -307,4 +319,5 @@ jobs:
           dry-run: ${{ inputs.release-dry-run }}
           version-prefix: ${{ inputs.release-version-prefix }}
           create-release: ${{ inputs.release-create }}
+          update-major-tag: ${{ inputs.release-update-major-tag }}
           main-branch: ${{ inputs.main-branch }}

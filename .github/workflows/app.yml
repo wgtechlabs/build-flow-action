@@ -183,6 +183,11 @@ on:
         required: false
         type: boolean
         default: true
+      release-update-major-tag:
+        description: Move the major version tag (vN) to the new release in release primitive
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -347,6 +352,7 @@ jobs:
     permissions:
       contents: write
       packages: write
+      pull-requests: write
     steps:
       - name: Run package primitive
         uses: wgtechlabs/package-build-flow-action@999bc41848a8ee5f86d807ac5eab321a264d54de # main
@@ -355,6 +361,7 @@ jobs:
           dry-run: ${{ inputs.package-dry-run }}
           main-branch: ${{ inputs.main-branch }}
           dev-branch: ${{ inputs.dev-branch }}
+          npm-token: ${{ secrets.NPM_TOKEN }}
 
   container:
     name: Container flow
@@ -371,6 +378,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4.1.0
 
       - name: Run container primitive
         uses: wgtechlabs/container-build-flow-action@7df0af8c4395db7df1927ef215445cd546e9e3f2 # main
@@ -410,4 +420,5 @@ jobs:
           dry-run: ${{ inputs.release-dry-run }}
           version-prefix: ${{ inputs.release-version-prefix }}
           create-release: ${{ inputs.release-create }}
+          update-major-tag: ${{ inputs.release-update-major-tag }}
           main-branch: ${{ inputs.main-branch }}

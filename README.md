@@ -47,6 +47,13 @@ For production repositories, pin reusable workflow references to a release tag o
 ### With Package and Container Publishing
 
 ```yaml
+permissions:
+  contents: write          # release commits, tags, and changelog
+  packages: write          # npm / GitHub Packages / GHCR
+  pull-requests: write     # default PR comments from primitives
+  security-events: write   # CodeQL + container SARIF upload
+  actions: read            # CodeQL
+
 jobs:
   build-flow:
     uses: wgtechlabs/build-flow-action/.github/workflows/app.yml@main
@@ -196,6 +203,20 @@ When using `secrets: inherit`, Build Flow automatically picks up the following s
 | `CODECOV_TOKEN` | Coverage reporting enabled | Codecov upload token |
 
 GHCR (GitHub Container Registry) authentication uses the built-in `GITHUB_TOKEN` automatically — no extra secret is needed.
+
+## Required Permissions
+
+Build Flow's reusable workflows request the permissions their primitives need, but **a called workflow can never exceed the permissions of the caller**. If your caller workflow grants fewer scopes, the primitives' default features (PR comments, SARIF upload, npm/registry publish, release commits) are silently capped and fail. Declare the scopes you need in the caller:
+
+| Permission | Required for |
+|------------|--------------|
+| `contents: write` | Release commits, tags, changelog (release flow) |
+| `packages: write` | npm, GitHub Packages, and GHCR publishing |
+| `pull-requests: write` | Default PR comments from the package/container primitives |
+| `security-events: write` | CodeQL results and container Trivy SARIF upload |
+| `actions: read` | CodeQL |
+
+A CI-only caller (no publishing, no release) needs only the defaults. For a full app flow, use the block shown in [With Package and Container Publishing](#with-package-and-container-publishing).
 
 ## Ecosystem Relationship
 
