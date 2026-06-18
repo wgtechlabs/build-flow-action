@@ -168,6 +168,11 @@ on:
         required: false
         type: boolean
         default: false
+      release-sync-version-files:
+        description: Sync version into manifest files (package.json, Cargo.toml, etc.) in release primitive
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -342,4 +347,5 @@ jobs:
           version-prefix: ${{ inputs.release-version-prefix }}
           create-release: ${{ inputs.release-create }}
           update-major-tag: ${{ inputs.release-update-major-tag }}
+          sync-version-files: ${{ inputs.release-sync-version-files }}
           main-branch: ${{ inputs.main-branch }}

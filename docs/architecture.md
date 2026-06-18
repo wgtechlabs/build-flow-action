@@ -290,7 +290,7 @@ Because reusable-workflow permissions are bounded by the caller, **example calle
 
 - Package: dual-registry publish, `pr-comment-enabled`, branch-aware flow detection.
 - Container: dual-registry, Trivy source/dockerfile/image scans, SARIF upload, SBOM, provenance, bot-detection, PR comments.
-- Release: `sync-version-files: true` (auto-syncs manifest versions), `commit-changelog: true`, `create-release: true`, `commit-convention: clean-commit`, first release patch-bumps from `initial-version`.
+- Release: `sync-version-files: true` (auto-syncs manifest versions, exposed as passthrough `release-sync-version-files`), `commit-changelog: true`, `create-release: true`, `commit-convention: clean-commit`, first release patch-bumps from `initial-version`.
 
 ### Intentional divergences (by design — documented, not bugs)
 
