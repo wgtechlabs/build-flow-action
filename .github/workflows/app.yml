@@ -352,6 +352,7 @@ jobs:
     permissions:
       contents: write
       packages: write
+      pull-requests: write
       security-events: write
     steps:
       - name: Checkout repository

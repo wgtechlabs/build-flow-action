@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - ensure checkout before finalize (#25)
 
+### Fixed
+
+- add pull-requests write permission to container job for PR comments (#30)
+
 ## [0.1.5] - 2026-06-17
 
 ### Changed
