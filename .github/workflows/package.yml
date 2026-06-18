@@ -177,6 +177,7 @@ jobs:
           INPUT_MAIN_BRANCH: ${{ inputs.main-branch }}
           INPUT_DEV_BRANCH: ${{ inputs.dev-branch }}
           GH_EVENT_NAME: ${{ github.event_name }}
+          GH_EVENT_ACTION: ${{ github.event.action }}
           INPUT_PUBLISH_DEV: ${{ inputs.publish-dev-artifacts }}
           INPUT_PUBLISH_PR: ${{ inputs.publish-pr-artifacts }}
           INPUT_PUBLISH_MANUAL: ${{ inputs.publish-manual-artifacts }}
@@ -186,6 +187,7 @@ jobs:
           is_dev=false
           is_pr=false
           is_manual=false
+          is_release=false
 
           if [[ "$GH_REF" == "refs/heads/$INPUT_MAIN_BRANCH" ]] || [[ "$GH_EVENT_NAME" == "pull_request" && "$GH_PR_MERGED" == "true" && "$GH_BASE_REF" == "$INPUT_MAIN_BRANCH" ]]; then
             is_main=true
@@ -203,6 +205,10 @@ jobs:
             is_manual=true
           fi
 
+          if [[ "$GH_EVENT_NAME" == "release" && "$GH_EVENT_ACTION" == "published" ]]; then
+            is_release=true
+          fi
+
           allow_package_publish=false
           if [[ "$is_main" == "true" ]]; then
             allow_package_publish=true
@@ -211,6 +217,8 @@ jobs:
           elif [[ "$is_pr" == "true" && "$INPUT_PUBLISH_PR" == "true" ]]; then
             allow_package_publish=true
           elif [[ "$is_manual" == "true" && "$INPUT_PUBLISH_MANUAL" == "true" ]]; then
+            allow_package_publish=true
+          elif [[ "$is_release" == "true" ]]; then
             allow_package_publish=true
           fi
 
