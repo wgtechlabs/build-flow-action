@@ -356,6 +356,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Run container primitive
         uses: wgtechlabs/container-build-flow-action@7df0af8c4395db7df1927ef215445cd546e9e3f2 # main
@@ -381,6 +383,11 @@ jobs:
       contents: write
     if: ${{ always() && needs.context.outputs.allow-release-finalize == 'true' && needs.ci-gate.result == 'success' && (inputs.enable-package == false || needs.package.result == 'success') && (inputs.enable-container == false || needs.container.result == 'success') }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Run release primitive (finalize)
         uses: wgtechlabs/release-build-flow-action@caae4110eb1768fda7b73cf2a86a10f3697cdf6b # main
         with:
