@@ -5,6 +5,8 @@ on:
     branches: [dev, main]
   push:
     branches: [dev, main]
+  release:
+    types: [published]
   workflow_dispatch:
 
 # Full configuration reference for app.yml.

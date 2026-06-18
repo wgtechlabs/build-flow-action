@@ -97,7 +97,7 @@ When you call `app.yml`, Build Flow runs this dependency graph:
    CodeQL (parallel)     → independent security scan (does not gate publishing or release)
 ```
 
-Default behavior (zero-config): CI + security + release finalization on main. In `app.yml`, package and container flows run when explicitly enabled. When enabled (or when using `package.yml` / `container.yml` directly), artifact publishing defaults to allowed on main, dev, PR, and manual runs unless you set a `publish-*-artifacts` input to `false`.
+Default behavior (zero-config): CI + security + release finalization on main. In `app.yml`, package and container flows run when explicitly enabled. When enabled (or when using `package.yml` / `container.yml` directly), artifact publishing defaults to allowed on main, dev, PR, manual, and published release events unless you set a `publish-*-artifacts` input to `false`.
 
 Key behaviors:
 - **Release is always last** — no public release until all artifacts succeed
@@ -225,6 +225,7 @@ Build Flow is designed for the [Clean Flow](https://github.com/wgtechlabs/clean-
 | PR to `dev` or `main` | CI + security gates + artifact publishing (enabled by default) |
 | Push to `dev` | CI + artifact publishing (enabled by default) |
 | Push to `main` | CI + publish artifacts + finalize release |
+| Release published | CI + artifact publishing (release mode in container primitive) |
 | Manual dispatch | Configurable operational/recovery scenarios |
 
 ## Examples
