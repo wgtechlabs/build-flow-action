@@ -47,6 +47,13 @@ For production repositories, pin reusable workflow references to a release tag o
 ### With Package and Container Publishing
 
 ```yaml
+permissions:
+  contents: write          # release commits, tags, and changelog
+  packages: write          # npm / GitHub Packages / GHCR
+  pull-requests: write     # default PR comments from primitives
+  security-events: write   # CodeQL + container SARIF upload
+  actions: read            # CodeQL
+
 jobs:
   build-flow:
     uses: wgtechlabs/build-flow-action/.github/workflows/app.yml@main
@@ -97,7 +104,7 @@ When you call `app.yml`, Build Flow runs this dependency graph:
    CodeQL (parallel)     → independent security scan (does not gate publishing or release)
 ```
 
-Default behavior (zero-config): CI + security + release finalization on main. In `app.yml`, package and container flows run when explicitly enabled. When enabled (or when using `package.yml` / `container.yml` directly), artifact publishing defaults to allowed on main, dev, PR, and manual runs unless you set a `publish-*-artifacts` input to `false`.
+Default behavior (zero-config): CI + security + release finalization on main. In `app.yml`, package and container flows run when explicitly enabled. When enabled (or when using `package.yml` / `container.yml` directly), artifact publishing defaults to allowed on main, dev, PR, manual, and published release events unless you set a `publish-*-artifacts` input to `false`.
 
 Key behaviors:
 - **Release is always last** — no public release until all artifacts succeed
@@ -197,6 +204,20 @@ When using `secrets: inherit`, Build Flow automatically picks up the following s
 
 GHCR (GitHub Container Registry) authentication uses the built-in `GITHUB_TOKEN` automatically — no extra secret is needed.
 
+## Required Permissions
+
+Build Flow's reusable workflows request the permissions their primitives need, but **a called workflow can never exceed the permissions of the caller**. If your caller workflow grants fewer scopes, the primitives' default features (PR comments, SARIF upload, npm/registry publish, release commits) are silently capped and fail. Declare the scopes you need in the caller:
+
+| Permission | Required for |
+|------------|--------------|
+| `contents: write` | Release commits, tags, changelog (release flow) |
+| `packages: write` | npm, GitHub Packages, and GHCR publishing |
+| `pull-requests: write` | Default PR comments from the package/container primitives |
+| `security-events: write` | CodeQL results and container Trivy SARIF upload |
+| `actions: read` | CodeQL |
+
+A CI-only caller (no publishing, no release) needs only the defaults. For a full app flow, use the block shown in [With Package and Container Publishing](#with-package-and-container-publishing).
+
 ## Ecosystem Relationship
 
 Build Flow orchestrates these WG Technology Labs primitives:
@@ -225,6 +246,7 @@ Build Flow is designed for the [Clean Flow](https://github.com/wgtechlabs/clean-
 | PR to `dev` or `main` | CI + security gates + artifact publishing (enabled by default) |
 | Push to `dev` | CI + artifact publishing (enabled by default) |
 | Push to `main` | CI + publish artifacts + finalize release |
+| Release published | CI + artifact publishing (release mode in container primitive) |
 | Manual dispatch | Configurable operational/recovery scenarios |
 
 ## Examples

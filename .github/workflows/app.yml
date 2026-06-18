@@ -183,6 +183,11 @@ on:
         required: false
         type: boolean
         default: true
+      release-update-major-tag:
+        description: Move the major version tag (vN) to the new release in release primitive
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -198,6 +203,7 @@ jobs:
       is-dev: ${{ steps.policy.outputs.is-dev }}
       is-pr: ${{ steps.policy.outputs.is-pr }}
       is-manual: ${{ steps.policy.outputs.is-manual }}
+      is-release: ${{ steps.policy.outputs.is-release }}
       allow-artifact-publish: ${{ steps.policy.outputs.allow-artifact-publish }}
       allow-release-finalize: ${{ steps.policy.outputs.allow-release-finalize }}
     steps:
@@ -211,6 +217,7 @@ jobs:
           INPUT_MAIN_BRANCH: ${{ inputs.main-branch }}
           INPUT_DEV_BRANCH: ${{ inputs.dev-branch }}
           GH_EVENT_NAME: ${{ github.event_name }}
+          GH_EVENT_ACTION: ${{ github.event.action }}
           INPUT_PUBLISH_DEV: ${{ inputs.publish-dev-artifacts }}
           INPUT_PUBLISH_PR: ${{ inputs.publish-pr-artifacts }}
           INPUT_PUBLISH_MANUAL: ${{ inputs.publish-manual-artifacts }}
@@ -220,6 +227,7 @@ jobs:
           is_dev=false
           is_pr=false
           is_manual=false
+          is_release=false
 
           if [[ "$GH_REF" == "refs/heads/$INPUT_MAIN_BRANCH" ]] || [[ "$GH_EVENT_NAME" == "pull_request" && "$GH_PR_MERGED" == "true" && "$GH_BASE_REF" == "$INPUT_MAIN_BRANCH" ]]; then
             is_main=true
@@ -237,6 +245,10 @@ jobs:
             is_manual=true
           fi
 
+          if [[ "$GH_EVENT_NAME" == "release" && "$GH_EVENT_ACTION" == "published" ]]; then
+            is_release=true
+          fi
+
           allow_artifact_publish=false
           if [[ "$is_main" == "true" ]]; then
             allow_artifact_publish=true
@@ -245,6 +257,8 @@ jobs:
           elif [[ "$is_pr" == "true" && "$INPUT_PUBLISH_PR" == "true" ]]; then
             allow_artifact_publish=true
           elif [[ "$is_manual" == "true" && "$INPUT_PUBLISH_MANUAL" == "true" ]]; then
+            allow_artifact_publish=true
+          elif [[ "$is_release" == "true" ]]; then
             allow_artifact_publish=true
           fi
 
@@ -258,6 +272,7 @@ jobs:
             echo "is-dev=$is_dev"
             echo "is-pr=$is_pr"
             echo "is-manual=$is_manual"
+            echo "is-release=$is_release"
             echo "allow-artifact-publish=$allow_artifact_publish"
             echo "allow-release-finalize=$allow_release_finalize"
           } >> "$GITHUB_OUTPUT"
@@ -271,6 +286,7 @@ jobs:
           IS_DEV: ${{ steps.policy.outputs.is-dev }}
           IS_PR: ${{ steps.policy.outputs.is-pr }}
           IS_MANUAL: ${{ steps.policy.outputs.is-manual }}
+          IS_RELEASE: ${{ steps.policy.outputs.is-release }}
           ALLOW_ARTIFACT: ${{ steps.policy.outputs.allow-artifact-publish }}
           ALLOW_RELEASE: ${{ steps.policy.outputs.allow-release-finalize }}
         run: |
@@ -282,6 +298,7 @@ jobs:
             echo "- Dev branch: $IS_DEV"
             echo "- PR: $IS_PR"
             echo "- Manual: $IS_MANUAL"
+            echo "- Release (published): $IS_RELEASE"
             echo "- Artifact publish allowed: $ALLOW_ARTIFACT"
             echo "- Release finalize allowed: $ALLOW_RELEASE"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -335,6 +352,7 @@ jobs:
     permissions:
       contents: write
       packages: write
+      pull-requests: write
     steps:
       - name: Run package primitive
         uses: wgtechlabs/package-build-flow-action@999bc41848a8ee5f86d807ac5eab321a264d54de # main
@@ -343,6 +361,7 @@ jobs:
           dry-run: ${{ inputs.package-dry-run }}
           main-branch: ${{ inputs.main-branch }}
           dev-branch: ${{ inputs.dev-branch }}
+          npm-token: ${{ secrets.NPM_TOKEN }}
 
   container:
     name: Container flow
@@ -359,6 +378,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4.1.0
 
       - name: Run container primitive
         uses: wgtechlabs/container-build-flow-action@7df0af8c4395db7df1927ef215445cd546e9e3f2 # main
@@ -398,4 +420,5 @@ jobs:
           dry-run: ${{ inputs.release-dry-run }}
           version-prefix: ${{ inputs.release-version-prefix }}
           create-release: ${{ inputs.release-create }}
+          update-major-tag: ${{ inputs.release-update-major-tag }}
           main-branch: ${{ inputs.main-branch }}
