@@ -153,6 +153,201 @@ on:
         required: false
         type: string
         default: ''
+      container-ghcr-username:
+        description: GHCR username override passed to container primitive (defaults to repository owner)
+        required: false
+        type: string
+        default: ''
+      container-dockerfile:
+        description: Dockerfile path passed to container primitive
+        required: false
+        type: string
+        default: ./Dockerfile
+      container-context:
+        description: Build context path passed to container primitive
+        required: false
+        type: string
+        default: .
+      container-platforms:
+        description: Target platforms (comma-separated) passed to container primitive
+        required: false
+        type: string
+        default: linux/amd64
+      container-release-platforms:
+        description: Target platforms for release builds passed to container primitive (overrides container-platforms for release flows; empty string uses container-platforms)
+        required: false
+        type: string
+        default: linux/amd64,linux/arm64
+      container-build-args:
+        description: Build arguments (newline-separated) passed to container primitive
+        required: false
+        type: string
+        default: ''
+      container-labels:
+        description: Image labels (newline-separated) passed to container primitive
+        required: false
+        type: string
+        default: ''
+      container-cache-enabled:
+        description: Enable build cache in container primitive
+        required: false
+        type: boolean
+        default: true
+      container-pr-comment-enabled:
+        description: Enable PR comments with pull instructions in container primitive
+        required: false
+        type: boolean
+        default: true
+      container-pr-comment-template:
+        description: Custom PR comment template passed to container primitive (supports {BUILD_FLOW}, {IMAGE_TAGS}, {REGISTRY_URLS})
+        required: false
+        type: string
+        default: ''
+      container-push-enabled:
+        description: Enable pushing to registry in container primitive (set to false for testing)
+        required: false
+        type: boolean
+        default: true
+      container-load-enabled:
+        description: Load image to Docker daemon in container primitive (useful for local testing)
+        required: false
+        type: boolean
+        default: false
+      container-provenance:
+        description: Enable provenance attestation in container primitive
+        required: false
+        type: boolean
+        default: true
+      container-sbom:
+        description: Enable SBOM attestation in container primitive
+        required: false
+        type: boolean
+        default: true
+      container-pre-build-scan-enabled:
+        description: Enable pre-build security scanning (source code + Dockerfile) in container primitive
+        required: false
+        type: boolean
+        default: true
+      container-scan-source-code:
+        description: Scan source code and dependencies before building in container primitive
+        required: false
+        type: boolean
+        default: true
+      container-scan-dockerfile:
+        description: Scan Dockerfile for misconfigurations and best practices in container primitive
+        required: false
+        type: boolean
+        default: true
+      container-image-scan-enabled:
+        description: Enable post-build container image scanning in container primitive
+        required: false
+        type: boolean
+        default: true
+      container-trivy-severity:
+        description: Trivy severity levels to scan (comma-separated) passed to container primitive
+        required: false
+        type: string
+        default: HIGH,CRITICAL
+      container-trivy-ignore-unfixed:
+        description: Ignore vulnerabilities without available fixes in container primitive
+        required: false
+        type: boolean
+        default: false
+      container-trivy-timeout:
+        description: Trivy scan timeout duration passed to container primitive (e.g., 5m0s, 10m0s)
+        required: false
+        type: string
+        default: 10m0s
+      container-trivy-skip-dirs:
+        description: Directories to skip during Trivy scan (comma-separated) passed to container primitive
+        required: false
+        type: string
+        default: ''
+      container-trivy-skip-files:
+        description: Files to skip during Trivy scan (comma-separated) passed to container primitive
+        required: false
+        type: string
+        default: ''
+      container-upload-sarif:
+        description: Upload vulnerability scan results to GitHub Security tab (SARIF) in container primitive
+        required: false
+        type: boolean
+        default: true
+      container-sarif-category-source:
+        description: SARIF category name for source code scan passed to container primitive
+        required: false
+        type: string
+        default: trivy-source-scan
+      container-sarif-category-dockerfile:
+        description: SARIF category name for Dockerfile scan passed to container primitive
+        required: false
+        type: string
+        default: trivy-dockerfile-scan
+      container-sarif-category-image:
+        description: SARIF category name for container image scan passed to container primitive
+        required: false
+        type: string
+        default: trivy-container-scan
+      container-vulnerability-comment-enabled:
+        description: Add comprehensive vulnerability scan results to PR comments in container primitive
+        required: false
+        type: boolean
+        default: true
+      container-enable-image-comparison:
+        description: Compare vulnerabilities with baseline image in container primitive
+        required: false
+        type: boolean
+        default: false
+      container-comparison-baseline-image:
+        description: Baseline image tag to compare against passed to container primitive (e.g., myapp:latest)
+        required: false
+        type: string
+        default: ''
+      container-fail-on-vulnerability:
+        description: Fail the build if vulnerabilities are found at or above container-trivy-severity level
+        required: false
+        type: boolean
+        default: false
+      container-commit-convention-enabled:
+        description: Enable smart build filtering based on commit message conventions in container primitive
+        required: false
+        type: boolean
+        default: false
+      container-commit-convention:
+        description: Commit message convention to parse in container primitive (clean-commit or conventional)
+        required: false
+        type: string
+        default: clean-commit
+      container-build-trigger-types:
+        description: Comma-separated commit types that trigger a container build (leave empty for convention-aware defaults)
+        required: false
+        type: string
+        default: ''
+      container-build-skip-types:
+        description: Comma-separated commit types that skip the container build (leave empty for convention-aware defaults)
+        required: false
+        type: string
+        default: ''
+      container-release-tag-pattern:
+        description: Regex pattern matching release tags that trigger container builds passed to container primitive
+        required: false
+        type: string
+        default: '^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$'
+      container-bot-detection:
+        description: Auto-detect bot actors and skip the build in container primitive
+        required: false
+        type: boolean
+        default: true
+      container-bot-detection-mode:
+        description: Controls which identity is evaluated for bot detection in container primitive (smart, actor, or pr-author)
+        required: false
+        type: string
+        default: smart
+      container-floating-tags:
+        description: Push a mutable floating tag (dev, pr, patch, staging, wip) for non-release builds in container primitive
+        required: false
+        type: boolean
+        default: false
       release-changelog-path:
         description: Changelog path passed to release primitive
         required: false
@@ -393,6 +588,46 @@ jobs:
           dev-branch: ${{ inputs.dev-branch }}
           dockerhub-username: ${{ secrets.DOCKER_HUB_USERNAME }}
           dockerhub-token: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+          ghcr-token: ${{ secrets.GHCR_TOKEN }}
+          ghcr-username: ${{ inputs.container-ghcr-username }}
+          dockerfile: ${{ inputs.container-dockerfile }}
+          context: ${{ inputs.container-context }}
+          platforms: ${{ inputs.container-platforms }}
+          release-platforms: ${{ inputs.container-release-platforms }}
+          build-args: ${{ inputs.container-build-args }}
+          labels: ${{ inputs.container-labels }}
+          cache-enabled: ${{ inputs.container-cache-enabled }}
+          pr-comment-enabled: ${{ inputs.container-pr-comment-enabled }}
+          pr-comment-template: ${{ inputs.container-pr-comment-template }}
+          push-enabled: ${{ inputs.container-push-enabled }}
+          load-enabled: ${{ inputs.container-load-enabled }}
+          provenance: ${{ inputs.container-provenance }}
+          sbom: ${{ inputs.container-sbom }}
+          pre-build-scan-enabled: ${{ inputs.container-pre-build-scan-enabled }}
+          scan-source-code: ${{ inputs.container-scan-source-code }}
+          scan-dockerfile: ${{ inputs.container-scan-dockerfile }}
+          image-scan-enabled: ${{ inputs.container-image-scan-enabled }}
+          trivy-severity: ${{ inputs.container-trivy-severity }}
+          trivy-ignore-unfixed: ${{ inputs.container-trivy-ignore-unfixed }}
+          trivy-timeout: ${{ inputs.container-trivy-timeout }}
+          trivy-skip-dirs: ${{ inputs.container-trivy-skip-dirs }}
+          trivy-skip-files: ${{ inputs.container-trivy-skip-files }}
+          upload-sarif: ${{ inputs.container-upload-sarif }}
+          sarif-category-source: ${{ inputs.container-sarif-category-source }}
+          sarif-category-dockerfile: ${{ inputs.container-sarif-category-dockerfile }}
+          sarif-category-image: ${{ inputs.container-sarif-category-image }}
+          vulnerability-comment-enabled: ${{ inputs.container-vulnerability-comment-enabled }}
+          enable-image-comparison: ${{ inputs.container-enable-image-comparison }}
+          comparison-baseline-image: ${{ inputs.container-comparison-baseline-image }}
+          fail-on-vulnerability: ${{ inputs.container-fail-on-vulnerability }}
+          commit-convention-enabled: ${{ inputs.container-commit-convention-enabled }}
+          commit-convention: ${{ inputs.container-commit-convention }}
+          build-trigger-types: ${{ inputs.container-build-trigger-types }}
+          build-skip-types: ${{ inputs.container-build-skip-types }}
+          release-tag-pattern: ${{ inputs.container-release-tag-pattern }}
+          bot-detection: ${{ inputs.container-bot-detection }}
+          bot-detection-mode: ${{ inputs.container-bot-detection-mode }}
+          floating-tags: ${{ inputs.container-floating-tags }}
 
   release:
     name: Release finalize (last)
