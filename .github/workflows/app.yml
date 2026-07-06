@@ -877,7 +877,7 @@ jobs:
           dev-branch: ${{ inputs.dev-branch }}
           dockerhub-username: ${{ secrets.DOCKER_HUB_USERNAME }}
           dockerhub-token: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-          ghcr-token: ${{ secrets.GHCR_TOKEN }}
+          ghcr-token: ${{ secrets.GHCR_TOKEN || github.token }}
           ghcr-username: ${{ inputs.container-ghcr-username }}
           dockerfile: ${{ inputs.container-dockerfile }}
           context: ${{ inputs.container-context }}
