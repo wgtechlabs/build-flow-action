@@ -383,6 +383,151 @@ on:
         required: false
         type: boolean
         default: false
+      release-initial-version:
+        description: Initial version if no tags exist, passed to release primitive
+        required: false
+        type: string
+        default: 0.1.0
+      release-prerelease-prefix:
+        description: Prefix for prerelease versions (e.g., beta, alpha, rc) passed to release primitive
+        required: false
+        type: string
+        default: ''
+      release-changelog-enabled:
+        description: Enable automatic changelog generation in release primitive
+        required: false
+        type: boolean
+        default: true
+      release-commit-type-mapping:
+        description: JSON mapping of commit types to changelog sections (empty uses convention-aware defaults)
+        required: false
+        type: string
+        default: ''
+      release-exclude-types:
+        description: Comma-separated list of commit types to exclude from changelog (empty uses convention-aware defaults)
+        required: false
+        type: string
+        default: ''
+      release-exclude-scopes:
+        description: Comma-separated list of commit scopes to exclude from changelog
+        required: false
+        type: string
+        default: ''
+      release-major-keywords:
+        description: Comma-separated keywords that trigger major version bump
+        required: false
+        type: string
+        default: 'BREAKING CHANGE,BREAKING-CHANGE,breaking'
+      release-minor-keywords:
+        description: Comma-separated keywords that trigger minor version bump (empty uses convention-aware defaults)
+        required: false
+        type: string
+        default: ''
+      release-patch-keywords:
+        description: Comma-separated keywords that trigger patch version bump (empty uses convention-aware defaults)
+        required: false
+        type: string
+        default: ''
+      release-release-name-template:
+        description: Template for release name (supports {tag}, {version}, {date}) passed to release primitive
+        required: false
+        type: string
+        default: '{tag}'
+      release-git-user-name:
+        description: Git user name for commits made by release primitive
+        required: false
+        type: string
+        default: WG Tech Labs
+      release-git-user-email:
+        description: Git user email for commits made by release primitive
+        required: false
+        type: string
+        default: 262751631+wgtechlabs-automation@users.noreply.github.com
+      release-commit-changelog:
+        description: Commit and push changelog changes back to repository
+        required: false
+        type: boolean
+        default: true
+      release-sync-version-files:
+        description: Automatically update version in manifest files (package.json, Cargo.toml, pyproject.toml, pubspec.yaml)
+        required: false
+        type: boolean
+        default: true
+      release-version-file-paths:
+        description: Comma-separated paths to manifest files to update (auto-detected if not specified)
+        required: false
+        type: string
+        default: ''
+      release-commit-convention:
+        description: Commit message convention for auto-generated commits (clean-commit or conventional)
+        required: false
+        type: string
+        default: clean-commit
+      release-tag-only:
+        description: Only create tag without GitHub Release
+        required: false
+        type: boolean
+        default: false
+      release-fetch-depth:
+        description: Number of commits to fetch for changelog (0 for all) passed to release primitive
+        required: false
+        type: string
+        default: '0'
+      release-include-all-commits:
+        description: Include all commits in changelog, not just since last tag
+        required: false
+        type: boolean
+        default: false
+      release-monorepo:
+        description: Enable monorepo mode for multi-package repositories
+        required: false
+        type: boolean
+        default: false
+      release-workspace-detection:
+        description: Auto-detect workspace packages from package.json, pnpm-workspace.yaml, etc.
+        required: false
+        type: boolean
+        default: true
+      release-change-detection:
+        description: How to detect affected packages - scope (commit scope), path (file changes), or both
+        required: false
+        type: string
+        default: both
+      release-scope-package-mapping:
+        description: JSON mapping of commit scopes to package paths (auto-detected if not provided)
+        required: false
+        type: string
+        default: ''
+      release-per-package-changelog:
+        description: Generate CHANGELOG.md in each package directory
+        required: false
+        type: boolean
+        default: true
+      release-root-changelog:
+        description: Generate aggregated CHANGELOG.md at repository root
+        required: false
+        type: boolean
+        default: true
+      release-cascade-bumps:
+        description: (Reserved for future use) Automatically bump packages that depend on updated packages
+        required: false
+        type: boolean
+        default: false
+      release-unified-version:
+        description: All packages share a single unified version number
+        required: false
+        type: boolean
+        default: false
+      release-monorepo-root-release:
+        description: Create a unified root release (tag and GitHub Release) alongside per-package releases in monorepo mode
+        required: false
+        type: boolean
+        default: true
+      release-package-manager:
+        description: Package manager for workspace detection (npm, bun, pnpm, yarn) - auto-detected if not specified
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -657,3 +802,32 @@ jobs:
           create-release: ${{ inputs.release-create }}
           update-major-tag: ${{ inputs.release-update-major-tag }}
           main-branch: ${{ inputs.main-branch }}
+          initial-version: ${{ inputs.release-initial-version }}
+          prerelease-prefix: ${{ inputs.release-prerelease-prefix }}
+          changelog-enabled: ${{ inputs.release-changelog-enabled }}
+          commit-type-mapping: ${{ inputs.release-commit-type-mapping }}
+          exclude-types: ${{ inputs.release-exclude-types }}
+          exclude-scopes: ${{ inputs.release-exclude-scopes }}
+          major-keywords: ${{ inputs.release-major-keywords }}
+          minor-keywords: ${{ inputs.release-minor-keywords }}
+          patch-keywords: ${{ inputs.release-patch-keywords }}
+          release-name-template: ${{ inputs.release-release-name-template }}
+          git-user-name: ${{ inputs.release-git-user-name }}
+          git-user-email: ${{ inputs.release-git-user-email }}
+          commit-changelog: ${{ inputs.release-commit-changelog }}
+          sync-version-files: ${{ inputs.release-sync-version-files }}
+          version-file-paths: ${{ inputs.release-version-file-paths }}
+          commit-convention: ${{ inputs.release-commit-convention }}
+          tag-only: ${{ inputs.release-tag-only }}
+          fetch-depth: ${{ inputs.release-fetch-depth }}
+          include-all-commits: ${{ inputs.release-include-all-commits }}
+          monorepo: ${{ inputs.release-monorepo }}
+          workspace-detection: ${{ inputs.release-workspace-detection }}
+          change-detection: ${{ inputs.release-change-detection }}
+          scope-package-mapping: ${{ inputs.release-scope-package-mapping }}
+          per-package-changelog: ${{ inputs.release-per-package-changelog }}
+          root-changelog: ${{ inputs.release-root-changelog }}
+          cascade-bumps: ${{ inputs.release-cascade-bumps }}
+          unified-version: ${{ inputs.release-unified-version }}
+          monorepo-root-release: ${{ inputs.release-monorepo-root-release }}
+          package-manager: ${{ inputs.release-package-manager }}
