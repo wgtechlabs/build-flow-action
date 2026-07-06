@@ -15,6 +15,9 @@
 - Custom runner support (`ci-runs-on`)
 - `.nvmrc` / `.node-version` file support for Node.js version pinning
 - PR check noise reduction (consolidated from 10 checks to 2-3 visible entries)
+- Full primitive input passthrough for `container-build-flow-action`, `release-build-flow-action`, and `package-build-flow-action` via orchestration workflows
+- Monorepo package publishing and monorepo release mode exposed via `package-monorepo` and `release-monorepo`
+- Floating container tags (`@dev`, `@pr`, `@wip`) exposed via `container-floating-tags`
 
 ## Current Iteration
 
@@ -25,7 +28,7 @@
 
 ## Future
 
-- Monorepo support and matrix extensions
-- Rich release notes/changelog automation
+- Input validation and guard-rail summaries for misconfigured primitive input combinations
+- First-class examples for monorepo and floating-tag configurations
 - Additional registry and deployment integration options
 - Version pinning and tagged releases for stable consumer adoption
