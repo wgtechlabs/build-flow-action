@@ -364,7 +364,7 @@ When using `secrets: inherit`, Build Flow automatically picks up the following s
 | `GITLEAKS_LICENSE` | `enable-gitleaks: true` (default) | Gitleaks license key |
 | `NPM_TOKEN` | `enable-package: true` + `package-registry: npm` or `both` | npm publish token |
 | `CODECOV_TOKEN` | Coverage reporting enabled | Codecov upload token |
-| `GHCR_TOKEN` | `enable-container: true` + `container-registry: ghcr` or `both` (optional) | GHCR token override — uses built-in `GITHUB_TOKEN` when not set |
+| `GHCR_TOKEN` | Optional override when `enable-container: true` + `container-registry: ghcr` or `both` | GHCR token override — uses built-in `GITHUB_TOKEN` when not set |
 
 GHCR (GitHub Container Registry) authentication uses the built-in `GITHUB_TOKEN` automatically — no extra secret is needed unless you set `GHCR_TOKEN` to override it.
 

@@ -14,13 +14,13 @@ It does **not** reimplement build, publish, or release logic. That logic lives i
 
 `build-flow-action` orchestrates three independent, separately versioned primitive actions. Each one is a complete product on the GitHub Marketplace and owns its own defaults and behavior.
 
-| Primitive | Role | Pinned version (SHA) | Tag |
-|-----------|------|----------------------|-----|
-| [`wgtechlabs/release-build-flow-action`](https://github.com/wgtechlabs/release-build-flow-action) | Version bump, changelog, tag, GitHub Release | `caae411` | main |
-| [`wgtechlabs/package-build-flow-action`](https://github.com/wgtechlabs/package-build-flow-action) | Publish packages (npm, GitHub Packages) | `999bc41` | main |
-| [`wgtechlabs/container-build-flow-action`](https://github.com/wgtechlabs/container-build-flow-action) | Build and publish containers (Docker Hub, GHCR) | `7df0af8` | main |
+| Primitive | Role | Pinned version (SHA) | Upstream ref |
+|-----------|------|----------------------|--------------|
+| [`wgtechlabs/release-build-flow-action`](https://github.com/wgtechlabs/release-build-flow-action) | Version bump, changelog, tag, GitHub Release | `caae411` | `main` |
+| [`wgtechlabs/package-build-flow-action`](https://github.com/wgtechlabs/package-build-flow-action) | Publish packages (npm, GitHub Packages) | `999bc41` | `main` |
+| [`wgtechlabs/container-build-flow-action`](https://github.com/wgtechlabs/container-build-flow-action) | Build and publish containers (Docker Hub, GHCR) | `7df0af8` | `main` |
 
-All three are pinned by exact commit SHA (with a trailing version comment) in the reusable workflows. Bumping a primitive means updating the SHA **and** re-running the parity audit described below.
+All three are pinned by exact commit SHA (with a trailing ref comment, currently `# main`) in the reusable workflows. Bumping a primitive means updating the SHA **and** re-running the parity audit described below.
 
 ## Core principles
 

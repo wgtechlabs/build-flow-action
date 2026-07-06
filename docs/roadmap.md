@@ -28,7 +28,7 @@
 
 ## Future
 
-- Input validation and guard-rail summaries for misconfigured primitive input combinations
+- Cross-primitive conflict detection with actionable remediation hints
 - First-class examples for monorepo and floating-tag configurations
 - Additional registry and deployment integration options
 - Version pinning and tagged releases for stable consumer adoption
