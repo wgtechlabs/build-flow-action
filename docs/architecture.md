@@ -14,13 +14,13 @@ It does **not** reimplement build, publish, or release logic. That logic lives i
 
 `build-flow-action` orchestrates three independent, separately versioned primitive actions. Each one is a complete product on the GitHub Marketplace and owns its own defaults and behavior.
 
-| Primitive | Role | Pinned version (SHA) | Tag |
-|-----------|------|----------------------|-----|
-| [`wgtechlabs/release-build-flow-action`](https://github.com/wgtechlabs/release-build-flow-action) | Version bump, changelog, tag, GitHub Release | `caae411` | v1.7.0 |
-| [`wgtechlabs/package-build-flow-action`](https://github.com/wgtechlabs/package-build-flow-action) | Publish packages (npm, GitHub Packages) | `999bc41` | v2.1.2 |
-| [`wgtechlabs/container-build-flow-action`](https://github.com/wgtechlabs/container-build-flow-action) | Build and publish containers (Docker Hub, GHCR) | `7df0af8` | v1.8.1 |
+| Primitive | Role | Pinned version (SHA) | Upstream ref |
+|-----------|------|----------------------|--------------|
+| [`wgtechlabs/release-build-flow-action`](https://github.com/wgtechlabs/release-build-flow-action) | Version bump, changelog, tag, GitHub Release | `caae411` | `main` |
+| [`wgtechlabs/package-build-flow-action`](https://github.com/wgtechlabs/package-build-flow-action) | Publish packages (npm, GitHub Packages) | `999bc41` | `main` |
+| [`wgtechlabs/container-build-flow-action`](https://github.com/wgtechlabs/container-build-flow-action) | Build and publish containers (Docker Hub, GHCR) | `7df0af8` | `main` |
 
-All three are pinned by exact commit SHA (with a trailing version comment) in the reusable workflows. Bumping a primitive means updating the SHA **and** re-running the parity audit described below.
+All three are pinned by exact commit SHA (with a trailing ref comment, currently `# main`) in the reusable workflows. Bumping a primitive means updating the SHA **and** re-running the parity audit described below.
 
 ## Core principles
 
@@ -40,15 +40,17 @@ This eliminates the original production failure mode: a release being published 
 
 ### Principle 2 — Never override primitive defaults
 
-Each primitive's author deliberately chose its defaults and must-have behavior. **This orchestration must preserve those defaults, never silently suppress or re-assert them.**
+Each primitive's author deliberately chose its defaults and must-have behavior. **This orchestration must preserve those defaults, never silently suppress or re-assert them.** There are exactly two legitimate ways to honor a default, and the distinction between them matters:
+
+1. **Silent default — input not exposed.** The orchestration forwards no value for the input at all; the primitive's own default governs invisibly. Reserve this for inputs a consumer should never need to touch (internal implementation details that aren't part of the orchestration's configurable surface). Forwarding a value here that merely repeats the default would still be a form of pinning: if the primitive later changes its default, the orchestration would silently freeze the old one.
+2. **Passthrough default — input exposed with a matching default.** The orchestration exposes the input as its own `workflow_call` input, and that input's default exactly matches the primitive's default. A consumer who never sets it gets identical behavior to calling the primitive directly; a consumer who wants different behavior now has a reachable toggle. This is the standard for anything on the orchestration's configurable surface — for example, `app.yml` exposes all 37 `release-build-flow-action` inputs this way.
 
 Concretely:
 
-- If a primitive default is correct as-is, the orchestration **does not forward a value for it at all** — the primitive's own default governs. Forwarding a value that merely repeats the default is still a form of pinning: if the primitive later changes its default, the orchestration would silently freeze the old one. So we leave it alone.
-- The orchestration only forwards a value when that value is part of **its own configurable surface** (an input a consumer is expected to set) **and** its default exactly matches the primitive's default.
-- A value-level divergence from a primitive default is a bug. Historically these crept in one at a time and had to be patched repeatedly; this document and the parity reference exist to stop that.
+- Choose pattern 2 (expose + matching default) for any input a consumer is expected to want to set; use pattern 1 (silent default) only for the rest.
+- A value-level divergence from a primitive default is a bug under either pattern. Historically these crept in one at a time and had to be patched repeatedly; this document and the parity reference exist to stop that.
 
-Example: `release-build-flow-action` defaults `sync-version-files` to `true` (it syncs the resolved version into `package.json`, `Cargo.toml`, etc.). The orchestration **does not pass `sync-version-files`** — the primitive's `true` default governs untouched. We do not expose or re-assert it.
+Example (pattern 2 — passthrough): `release-build-flow-action` defaults `sync-version-files` to `true` (it syncs the resolved version into `package.json`, `Cargo.toml`, etc.). The orchestration exposes this as `release-sync-version-files` with a default of `true`, matching the primitive default exactly — a consumer who never sets it gets identical behavior to calling the primitive directly, while one who wants it off now has a reachable toggle.
 
 ## The override surface
 
@@ -56,7 +58,7 @@ There are exactly **three** mechanisms through which the orchestration can break
 
 1. **Policy gate + event triggers.** The `context`/policy job decides whether a flow runs. A missing event trigger (for example `release: published`) or a too-strict gate can suppress a flow the primitive would otherwise run.
 2. **Job permissions.** Reusable-workflow job permissions are **capped by the caller**. A missing scope makes a primitive's default feature (PR comments, SARIF upload, registry publish, release commit) fail or silently no-op.
-3. **Forwarded input values.** Every value forwarded to a primitive must equal that primitive's default unless the consumer deliberately overrode it. The cleanest way to honor a default is to not forward it at all (see Principle 2).
+3. **Forwarded input values.** Every value forwarded to a primitive must equal that primitive's default unless the consumer deliberately overrode it — whether that value is a silent default (not exposed) or a passthrough default (exposed, matching) per Principle 2.
 
 ## Integration model
 
@@ -112,13 +114,13 @@ Because reusable-workflow permissions are bounded by the caller, **example/consu
 
 - **package** — dual-registry publish, `pr-comment-enabled`, branch-aware flow detection.
 - **container** — dual-registry, Trivy source/dockerfile/image scans, SARIF upload, SBOM, provenance, bot-detection, PR comments.
-- **release** — `sync-version-files: true` (auto-syncs manifest versions — left to the primitive, not forwarded), `commit-changelog: true`, `create-release: true`, `commit-convention: clean-commit`; the first release patch-bumps from `initial-version`.
+- **release** — `sync-version-files: true` is now explicitly forwarded as `release-sync-version-files` with the same `true` default (so default behavior is unchanged), plus `commit-changelog: true`, `create-release: true`, `commit-convention: clean-commit`; the first release patch-bumps from `initial-version`.
 
 ### Consumer-facing passthroughs
 
-These are the only release-primitive toggles the orchestration deliberately exposes, and each default matches the primitive default so nothing is overridden:
+As of the v0.2 surface expansion, the orchestration now exposes the full consumer-configurable input surface of all three primitives (`container-build-flow-action`, `package-build-flow-action`, and `release-build-flow-action`) through wrapper workflows using matching passthrough defaults.
 
-- `release-update-major-tag` → `update-major-tag` (default `false` = primitive default). Lets action-repo consumers opt into moving the floating `vN` tag, which they cannot otherwise reach through the orchestration.
+For the full, current input list and defaults, see the **Inputs Reference** in [`README.md`](../README.md).
 
 ## Intentional design choices (by design — not bugs)
 
@@ -126,7 +128,7 @@ These behaviors look like divergences but are deliberate. Do not "fix" them back
 
 - **The policy gate is stricter than a primitive run in isolation.** The orchestration adds its own convention/branch gate and "build first, release last" sequencing on top of the primitives' own branch-aware detection. This safe-sequencing layer is the orchestration's reason to exist.
 - **`workflow_dispatch` and unknown events resolve to the `wip` flow.** This is the primitives' own behavior, preserved here.
-- **`sync-version-files` is left entirely to the release primitive.** It is `true` by default at the primitive level and the orchestration never forwards it (see Principle 2).
+- **`sync-version-files` defaults to `true` at the primitive level and is forwarded as `release-sync-version-files` with the same default** (see Principle 2), preserving behavior while making the toggle explicit for consumers.
 - **GitHub releases created with `GITHUB_TOKEN` do not trigger downstream `release:`-triggered workflows.** This is a GitHub platform behavior. The orchestration handles it by publishing artifacts before finalizing the release rather than relying on the `release` event.
 
 ## What this project must avoid

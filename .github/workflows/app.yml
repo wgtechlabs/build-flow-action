@@ -133,6 +133,126 @@ on:
         required: false
         type: boolean
         default: false
+      package-npm-registry-url:
+        description: NPM registry URL passed to package primitive
+        required: false
+        type: string
+        default: https://registry.npmjs.org
+      package-github-registry-url:
+        description: GitHub Packages registry URL passed to package primitive
+        required: false
+        type: string
+        default: https://npm.pkg.github.com
+      package-scope:
+        description: Package scope for GitHub Packages (e.g., @myorg); auto-detects repository owner if unscoped and not provided
+        required: false
+        type: string
+        default: ''
+      package-path:
+        description: Path to package.json passed to package primitive
+        required: false
+        type: string
+        default: ./package.json
+      package-build-script:
+        description: NPM script to run before publishing
+        required: false
+        type: string
+        default: build
+      package-manager:
+        description: Package manager to use (npm, yarn, pnpm, bun, or auto to auto-detect from lockfile)
+        required: false
+        type: string
+        default: auto
+      package-version-prefix:
+        description: Prefix for package version tags
+        required: false
+        type: string
+        default: ''
+      package-audit-enabled:
+        description: Enable package-manager-aware security scanning (npm audit or bun audit)
+        required: false
+        type: boolean
+        default: true
+      package-audit-level:
+        description: Minimum severity level for package security scanning
+        required: false
+        type: string
+        default: high
+      package-fail-on-audit:
+        description: Fail package build if vulnerabilities found
+        required: false
+        type: boolean
+        default: false
+      package-pr-comment-enabled:
+        description: Enable PR comments with package installation instructions
+        required: false
+        type: boolean
+        default: true
+      package-pr-comment-template:
+        description: Custom PR comment template for package primitive
+        required: false
+        type: string
+        default: ''
+      package-publish-enabled:
+        description: Enable publishing to the package registry
+        required: false
+        type: boolean
+        default: true
+      package-access:
+        description: Package access level for scoped packages (public or restricted)
+        required: false
+        type: string
+        default: public
+      package-monorepo:
+        description: Enable monorepo mode for package primitive
+        required: false
+        type: boolean
+        default: false
+      package-paths:
+        description: Comma-separated list of package.json paths (monorepo mode)
+        required: false
+        type: string
+        default: ''
+      package-workspace-detection:
+        description: Auto-detect workspaces from root package.json (monorepo mode)
+        required: false
+        type: boolean
+        default: true
+      package-changed-only:
+        description: Only build/publish packages that changed relative to the event diff base (monorepo mode only)
+        required: false
+        type: boolean
+        default: true
+      package-dependency-order:
+        description: Build packages in dependency order when workspace metadata is available (monorepo mode)
+        required: false
+        type: boolean
+        default: true
+      package-commit-convention-enabled:
+        description: Enable smart package build filtering based on commit message conventions
+        required: false
+        type: boolean
+        default: false
+      package-commit-convention:
+        description: Commit message convention to parse for package build filtering (clean-commit or conventional)
+        required: false
+        type: string
+        default: clean-commit
+      package-build-trigger-types:
+        description: Comma-separated commit types that trigger a package build (leave empty for convention-aware defaults)
+        required: false
+        type: string
+        default: ''
+      package-build-skip-types:
+        description: Comma-separated commit types that skip the package build (leave empty for convention-aware defaults)
+        required: false
+        type: string
+        default: ''
+      package-bot-detection:
+        description: Auto-detect bot actors and fall back to validation-only mode (build/audit run, publish skipped)
+        required: false
+        type: boolean
+        default: true
       container-registry:
         description: Container registry target for container primitive (docker-hub, ghcr, or both)
         required: false
@@ -153,6 +273,201 @@ on:
         required: false
         type: string
         default: ''
+      container-ghcr-username:
+        description: GHCR username override passed to container primitive (defaults to repository owner)
+        required: false
+        type: string
+        default: ''
+      container-dockerfile:
+        description: Dockerfile path passed to container primitive
+        required: false
+        type: string
+        default: ./Dockerfile
+      container-context:
+        description: Build context path passed to container primitive
+        required: false
+        type: string
+        default: .
+      container-platforms:
+        description: Target platforms (comma-separated) passed to container primitive
+        required: false
+        type: string
+        default: linux/amd64
+      container-release-platforms:
+        description: Target platforms for release builds passed to container primitive (overrides container-platforms for release flows; empty string uses container-platforms)
+        required: false
+        type: string
+        default: linux/amd64,linux/arm64
+      container-build-args:
+        description: Build arguments (newline-separated) passed to container primitive
+        required: false
+        type: string
+        default: ''
+      container-labels:
+        description: Image labels (newline-separated) passed to container primitive
+        required: false
+        type: string
+        default: ''
+      container-cache-enabled:
+        description: Enable build cache in container primitive
+        required: false
+        type: boolean
+        default: true
+      container-pr-comment-enabled:
+        description: Enable PR comments with pull instructions in container primitive
+        required: false
+        type: boolean
+        default: true
+      container-pr-comment-template:
+        description: Custom PR comment template passed to container primitive (supports {BUILD_FLOW}, {IMAGE_TAGS}, {REGISTRY_URLS})
+        required: false
+        type: string
+        default: ''
+      container-push-enabled:
+        description: Enable pushing to registry in container primitive (set to false for testing)
+        required: false
+        type: boolean
+        default: true
+      container-load-enabled:
+        description: Load image to Docker daemon in container primitive (useful for local testing)
+        required: false
+        type: boolean
+        default: false
+      container-provenance:
+        description: Enable provenance attestation in container primitive
+        required: false
+        type: boolean
+        default: true
+      container-sbom:
+        description: Enable SBOM attestation in container primitive
+        required: false
+        type: boolean
+        default: true
+      container-pre-build-scan-enabled:
+        description: Enable pre-build security scanning (source code + Dockerfile) in container primitive
+        required: false
+        type: boolean
+        default: true
+      container-scan-source-code:
+        description: Scan source code and dependencies before building in container primitive
+        required: false
+        type: boolean
+        default: true
+      container-scan-dockerfile:
+        description: Scan Dockerfile for misconfigurations and best practices in container primitive
+        required: false
+        type: boolean
+        default: true
+      container-image-scan-enabled:
+        description: Enable post-build container image scanning in container primitive
+        required: false
+        type: boolean
+        default: true
+      container-trivy-severity:
+        description: Trivy severity levels to scan (comma-separated) passed to container primitive
+        required: false
+        type: string
+        default: HIGH,CRITICAL
+      container-trivy-ignore-unfixed:
+        description: Ignore vulnerabilities without available fixes in container primitive
+        required: false
+        type: boolean
+        default: false
+      container-trivy-timeout:
+        description: Trivy scan timeout duration passed to container primitive (e.g., 5m0s, 10m0s)
+        required: false
+        type: string
+        default: 10m0s
+      container-trivy-skip-dirs:
+        description: Directories to skip during Trivy scan (comma-separated) passed to container primitive
+        required: false
+        type: string
+        default: ''
+      container-trivy-skip-files:
+        description: Files to skip during Trivy scan (comma-separated) passed to container primitive
+        required: false
+        type: string
+        default: ''
+      container-upload-sarif:
+        description: Upload vulnerability scan results to GitHub Security tab (SARIF) in container primitive
+        required: false
+        type: boolean
+        default: true
+      container-sarif-category-source:
+        description: SARIF category name for source code scan passed to container primitive
+        required: false
+        type: string
+        default: trivy-source-scan
+      container-sarif-category-dockerfile:
+        description: SARIF category name for Dockerfile scan passed to container primitive
+        required: false
+        type: string
+        default: trivy-dockerfile-scan
+      container-sarif-category-image:
+        description: SARIF category name for container image scan passed to container primitive
+        required: false
+        type: string
+        default: trivy-container-scan
+      container-vulnerability-comment-enabled:
+        description: Add comprehensive vulnerability scan results to PR comments in container primitive
+        required: false
+        type: boolean
+        default: true
+      container-enable-image-comparison:
+        description: Compare vulnerabilities with baseline image in container primitive
+        required: false
+        type: boolean
+        default: false
+      container-comparison-baseline-image:
+        description: Baseline image tag to compare against passed to container primitive (e.g., myapp:latest)
+        required: false
+        type: string
+        default: ''
+      container-fail-on-vulnerability:
+        description: Fail the build if vulnerabilities are found at or above container-trivy-severity level
+        required: false
+        type: boolean
+        default: false
+      container-commit-convention-enabled:
+        description: Enable smart build filtering based on commit message conventions in container primitive
+        required: false
+        type: boolean
+        default: false
+      container-commit-convention:
+        description: Commit message convention to parse in container primitive (clean-commit or conventional)
+        required: false
+        type: string
+        default: clean-commit
+      container-build-trigger-types:
+        description: Comma-separated commit types that trigger a container build (leave empty for convention-aware defaults)
+        required: false
+        type: string
+        default: ''
+      container-build-skip-types:
+        description: Comma-separated commit types that skip the container build (leave empty for convention-aware defaults)
+        required: false
+        type: string
+        default: ''
+      container-release-tag-pattern:
+        description: Regex pattern matching release tags that trigger container builds passed to container primitive
+        required: false
+        type: string
+        default: '^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$'
+      container-bot-detection:
+        description: Auto-detect bot actors and skip the build in container primitive
+        required: false
+        type: boolean
+        default: true
+      container-bot-detection-mode:
+        description: Controls which identity is evaluated for bot detection in container primitive (smart, actor, or pr-author)
+        required: false
+        type: string
+        default: smart
+      container-floating-tags:
+        description: Push a mutable floating tag (dev, pr, patch, staging, wip) for non-release builds in container primitive
+        required: false
+        type: boolean
+        default: false
       release-changelog-path:
         description: Changelog path passed to release primitive
         required: false
@@ -188,6 +503,151 @@ on:
         required: false
         type: boolean
         default: false
+      release-initial-version:
+        description: Initial version if no tags exist, passed to release primitive
+        required: false
+        type: string
+        default: 0.1.0
+      release-prerelease-prefix:
+        description: Prefix for prerelease versions (e.g., beta, alpha, rc) passed to release primitive
+        required: false
+        type: string
+        default: ''
+      release-changelog-enabled:
+        description: Enable automatic changelog generation in release primitive
+        required: false
+        type: boolean
+        default: true
+      release-commit-type-mapping:
+        description: JSON mapping of commit types to changelog sections (empty uses convention-aware defaults)
+        required: false
+        type: string
+        default: ''
+      release-exclude-types:
+        description: Comma-separated list of commit types to exclude from changelog (empty uses convention-aware defaults)
+        required: false
+        type: string
+        default: ''
+      release-exclude-scopes:
+        description: Comma-separated list of commit scopes to exclude from changelog
+        required: false
+        type: string
+        default: ''
+      release-major-keywords:
+        description: Comma-separated keywords that trigger major version bump
+        required: false
+        type: string
+        default: 'BREAKING CHANGE,BREAKING-CHANGE,breaking'
+      release-minor-keywords:
+        description: Comma-separated keywords that trigger minor version bump (empty uses convention-aware defaults)
+        required: false
+        type: string
+        default: ''
+      release-patch-keywords:
+        description: Comma-separated keywords that trigger patch version bump (empty uses convention-aware defaults)
+        required: false
+        type: string
+        default: ''
+      release-release-name-template:
+        description: Template for release name (supports {tag}, {version}, {date}) passed to release primitive
+        required: false
+        type: string
+        default: '{tag}'
+      release-git-user-name:
+        description: Git user name for commits made by release primitive
+        required: false
+        type: string
+        default: WG Tech Labs
+      release-git-user-email:
+        description: Git user email for commits made by release primitive
+        required: false
+        type: string
+        default: 262751631+wgtechlabs-automation@users.noreply.github.com
+      release-commit-changelog:
+        description: Commit and push changelog changes back to repository
+        required: false
+        type: boolean
+        default: true
+      release-sync-version-files:
+        description: Automatically update version in manifest files (package.json, Cargo.toml, pyproject.toml, pubspec.yaml)
+        required: false
+        type: boolean
+        default: true
+      release-version-file-paths:
+        description: Comma-separated paths to manifest files to update (auto-detected if not specified)
+        required: false
+        type: string
+        default: ''
+      release-commit-convention:
+        description: Commit message convention for auto-generated commits (clean-commit or conventional)
+        required: false
+        type: string
+        default: clean-commit
+      release-tag-only:
+        description: Only create tag without GitHub Release
+        required: false
+        type: boolean
+        default: false
+      release-fetch-depth:
+        description: Number of commits to fetch for changelog (0 for all) passed to release primitive
+        required: false
+        type: string
+        default: '0'
+      release-include-all-commits:
+        description: Include all commits in changelog, not just since last tag
+        required: false
+        type: boolean
+        default: false
+      release-monorepo:
+        description: Enable monorepo mode for multi-package repositories
+        required: false
+        type: boolean
+        default: false
+      release-workspace-detection:
+        description: Auto-detect workspace packages from package.json, pnpm-workspace.yaml, etc.
+        required: false
+        type: boolean
+        default: true
+      release-change-detection:
+        description: How to detect affected packages - scope (commit scope), path (file changes), or both
+        required: false
+        type: string
+        default: both
+      release-scope-package-mapping:
+        description: JSON mapping of commit scopes to package paths (auto-detected if not provided)
+        required: false
+        type: string
+        default: ''
+      release-per-package-changelog:
+        description: Generate CHANGELOG.md in each package directory
+        required: false
+        type: boolean
+        default: true
+      release-root-changelog:
+        description: Generate aggregated CHANGELOG.md at repository root
+        required: false
+        type: boolean
+        default: true
+      release-cascade-bumps:
+        description: (Reserved for future use) Automatically bump packages that depend on updated packages
+        required: false
+        type: boolean
+        default: false
+      release-unified-version:
+        description: All packages share a single unified version number
+        required: false
+        type: boolean
+        default: false
+      release-monorepo-root-release:
+        description: Create a unified root release (tag and GitHub Release) alongside per-package releases in monorepo mode
+        required: false
+        type: boolean
+        default: true
+      release-package-manager:
+        description: Package manager for workspace detection (npm, bun, pnpm, yarn) - auto-detected if not specified
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -361,6 +821,30 @@ jobs:
           dry-run: ${{ inputs.package-dry-run }}
           main-branch: ${{ inputs.main-branch }}
           dev-branch: ${{ inputs.dev-branch }}
+          npm-registry-url: ${{ inputs.package-npm-registry-url }}
+          github-registry-url: ${{ inputs.package-github-registry-url }}
+          package-scope: ${{ inputs.package-scope }}
+          package-path: ${{ inputs.package-path }}
+          build-script: ${{ inputs.package-build-script }}
+          package-manager: ${{ inputs.package-manager }}
+          version-prefix: ${{ inputs.package-version-prefix }}
+          audit-enabled: ${{ inputs.package-audit-enabled }}
+          audit-level: ${{ inputs.package-audit-level }}
+          fail-on-audit: ${{ inputs.package-fail-on-audit }}
+          pr-comment-enabled: ${{ inputs.package-pr-comment-enabled }}
+          pr-comment-template: ${{ inputs.package-pr-comment-template }}
+          publish-enabled: ${{ inputs.package-publish-enabled }}
+          access: ${{ inputs.package-access }}
+          monorepo: ${{ inputs.package-monorepo }}
+          package-paths: ${{ inputs.package-paths }}
+          workspace-detection: ${{ inputs.package-workspace-detection }}
+          changed-only: ${{ inputs.package-changed-only }}
+          dependency-order: ${{ inputs.package-dependency-order }}
+          commit-convention-enabled: ${{ inputs.package-commit-convention-enabled }}
+          commit-convention: ${{ inputs.package-commit-convention }}
+          build-trigger-types: ${{ inputs.package-build-trigger-types }}
+          build-skip-types: ${{ inputs.package-build-skip-types }}
+          bot-detection: ${{ inputs.package-bot-detection }}
           npm-token: ${{ secrets.NPM_TOKEN }}
 
   container:
@@ -393,6 +877,46 @@ jobs:
           dev-branch: ${{ inputs.dev-branch }}
           dockerhub-username: ${{ secrets.DOCKER_HUB_USERNAME }}
           dockerhub-token: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+          ghcr-token: ${{ secrets.GHCR_TOKEN || github.token }}
+          ghcr-username: ${{ inputs.container-ghcr-username }}
+          dockerfile: ${{ inputs.container-dockerfile }}
+          context: ${{ inputs.container-context }}
+          platforms: ${{ inputs.container-platforms }}
+          release-platforms: ${{ inputs.container-release-platforms }}
+          build-args: ${{ inputs.container-build-args }}
+          labels: ${{ inputs.container-labels }}
+          cache-enabled: ${{ inputs.container-cache-enabled }}
+          pr-comment-enabled: ${{ inputs.container-pr-comment-enabled }}
+          pr-comment-template: ${{ inputs.container-pr-comment-template }}
+          push-enabled: ${{ inputs.container-push-enabled }}
+          load-enabled: ${{ inputs.container-load-enabled }}
+          provenance: ${{ inputs.container-provenance }}
+          sbom: ${{ inputs.container-sbom }}
+          pre-build-scan-enabled: ${{ inputs.container-pre-build-scan-enabled }}
+          scan-source-code: ${{ inputs.container-scan-source-code }}
+          scan-dockerfile: ${{ inputs.container-scan-dockerfile }}
+          image-scan-enabled: ${{ inputs.container-image-scan-enabled }}
+          trivy-severity: ${{ inputs.container-trivy-severity }}
+          trivy-ignore-unfixed: ${{ inputs.container-trivy-ignore-unfixed }}
+          trivy-timeout: ${{ inputs.container-trivy-timeout }}
+          trivy-skip-dirs: ${{ inputs.container-trivy-skip-dirs }}
+          trivy-skip-files: ${{ inputs.container-trivy-skip-files }}
+          upload-sarif: ${{ inputs.container-upload-sarif }}
+          sarif-category-source: ${{ inputs.container-sarif-category-source }}
+          sarif-category-dockerfile: ${{ inputs.container-sarif-category-dockerfile }}
+          sarif-category-image: ${{ inputs.container-sarif-category-image }}
+          vulnerability-comment-enabled: ${{ inputs.container-vulnerability-comment-enabled }}
+          enable-image-comparison: ${{ inputs.container-enable-image-comparison }}
+          comparison-baseline-image: ${{ inputs.container-comparison-baseline-image }}
+          fail-on-vulnerability: ${{ inputs.container-fail-on-vulnerability }}
+          commit-convention-enabled: ${{ inputs.container-commit-convention-enabled }}
+          commit-convention: ${{ inputs.container-commit-convention }}
+          build-trigger-types: ${{ inputs.container-build-trigger-types }}
+          build-skip-types: ${{ inputs.container-build-skip-types }}
+          release-tag-pattern: ${{ inputs.container-release-tag-pattern }}
+          bot-detection: ${{ inputs.container-bot-detection }}
+          bot-detection-mode: ${{ inputs.container-bot-detection-mode }}
+          floating-tags: ${{ inputs.container-floating-tags }}
 
   release:
     name: Release finalize (last)
@@ -422,3 +946,32 @@ jobs:
           create-release: ${{ inputs.release-create }}
           update-major-tag: ${{ inputs.release-update-major-tag }}
           main-branch: ${{ inputs.main-branch }}
+          initial-version: ${{ inputs.release-initial-version }}
+          prerelease-prefix: ${{ inputs.release-prerelease-prefix }}
+          changelog-enabled: ${{ inputs.release-changelog-enabled }}
+          commit-type-mapping: ${{ inputs.release-commit-type-mapping }}
+          exclude-types: ${{ inputs.release-exclude-types }}
+          exclude-scopes: ${{ inputs.release-exclude-scopes }}
+          major-keywords: ${{ inputs.release-major-keywords }}
+          minor-keywords: ${{ inputs.release-minor-keywords }}
+          patch-keywords: ${{ inputs.release-patch-keywords }}
+          release-name-template: ${{ inputs.release-release-name-template }}
+          git-user-name: ${{ inputs.release-git-user-name }}
+          git-user-email: ${{ inputs.release-git-user-email }}
+          commit-changelog: ${{ inputs.release-commit-changelog }}
+          sync-version-files: ${{ inputs.release-sync-version-files }}
+          version-file-paths: ${{ inputs.release-version-file-paths }}
+          commit-convention: ${{ inputs.release-commit-convention }}
+          tag-only: ${{ inputs.release-tag-only }}
+          fetch-depth: ${{ inputs.release-fetch-depth }}
+          include-all-commits: ${{ inputs.release-include-all-commits }}
+          monorepo: ${{ inputs.release-monorepo }}
+          workspace-detection: ${{ inputs.release-workspace-detection }}
+          change-detection: ${{ inputs.release-change-detection }}
+          scope-package-mapping: ${{ inputs.release-scope-package-mapping }}
+          per-package-changelog: ${{ inputs.release-per-package-changelog }}
+          root-changelog: ${{ inputs.release-root-changelog }}
+          cascade-bumps: ${{ inputs.release-cascade-bumps }}
+          unified-version: ${{ inputs.release-unified-version }}
+          monorepo-root-release: ${{ inputs.release-monorepo-root-release }}
+          package-manager: ${{ inputs.release-package-manager }}

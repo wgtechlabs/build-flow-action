@@ -190,6 +190,169 @@ ci-runtime-version: '22'
 ci-matrix-versions: '["20","22"]'
 ```
 
+## Inputs Reference
+
+Source of truth: `.github/workflows/app.yml` (`on.workflow_call.inputs`).
+
+### Orchestration toggles
+
+| Input | Default | Description |
+|-------|---------|-------------|
+| `enable-package` | `false` | Enable package flow orchestration |
+| `enable-container` | `false` | Enable container flow orchestration |
+| `enable-release` | `true` | Enable release finalization orchestration |
+| `enable-gitleaks` | `true` | Enable Gitleaks gate |
+| `enable-codeql` | `true` | Enable CodeQL gate |
+
+### CI configuration
+
+| Input | Default | Description |
+|-------|---------|-------------|
+| `ci-profile` | `auto` | CI profile (auto\|node-bun\|node\|python\|go\|rust\|java\|c-cpp\|custom) |
+| `ci-runs-on` | `ubuntu-latest` | Runner label for CI jobs (e.g., ubuntu-latest, macos-latest, self-hosted) |
+| `ci-runtime-version` | `""` | Runtime version for non-matrix validation (e.g., 22 for Node, 3.13 for Python) |
+| `ci-matrix-versions` | `""` | JSON array of runtime versions (example: `["20","22"]`) |
+| `ci-setup-command` | `""` | Optional setup command |
+| `ci-install-command` | `""` | Optional install command |
+| `ci-lint-command` | `""` | Optional lint command |
+| `ci-typecheck-command` | `""` | Optional typecheck command |
+| `ci-test-command` | `""` | Optional test command |
+| `ci-coverage-command` | `""` | Optional coverage command |
+| `ci-build-command` | `""` | Optional build command |
+| `ci-docker-smoke-command` | `""` | Optional docker smoke command |
+| `codeql-languages` | `auto` | CodeQL languages (auto or comma-separated list) |
+| `codeql-build-mode` | `autobuild` | CodeQL build mode (autobuild or manual) |
+
+### Branch/publish policy
+
+| Input | Default | Description |
+|-------|---------|-------------|
+| `main-branch` | `main` | Main branch name |
+| `dev-branch` | `dev` | Development branch name |
+| `publish-dev-artifacts` | `true` | Allow artifact publishing on dev branch pushes |
+| `publish-pr-artifacts` | `true` | Allow artifact publishing for pull requests |
+| `publish-manual-artifacts` | `true` | Allow artifact publishing for workflow_dispatch runs |
+
+### Container inputs
+
+| Input | Default | Description |
+|-------|---------|-------------|
+| `container-registry` | `both` | Container registry target (docker-hub, ghcr, or both) |
+| `container-image-name` | `""` | Optional image name override |
+| `container-tag-prefix` | `""` | Optional tag prefix |
+| `container-tag-suffix` | `""` | Optional tag suffix |
+| `container-ghcr-username` | `""` | GHCR username override (defaults to repository owner) |
+| `container-dockerfile` | `./Dockerfile` | Dockerfile path |
+| `container-context` | `.` | Build context path |
+| `container-platforms` | `linux/amd64` | Target platforms (comma-separated) |
+| `container-release-platforms` | `linux/amd64,linux/arm64` | Release-build platforms (empty uses `container-platforms`) |
+| `container-build-args` | `""` | Build arguments (newline-separated) |
+| `container-labels` | `""` | Image labels (newline-separated) |
+| `container-cache-enabled` | `true` | Enable build cache |
+| `container-pr-comment-enabled` | `true` | Enable PR comments with pull instructions |
+| `container-pr-comment-template` | `""` | Custom PR comment template |
+| `container-push-enabled` | `true` | Enable pushing to registry |
+| `container-load-enabled` | `false` | Load image to Docker daemon |
+| `container-provenance` | `true` | Enable provenance attestation |
+| `container-sbom` | `true` | Enable SBOM attestation |
+| `container-pre-build-scan-enabled` | `true` | Enable pre-build security scanning |
+| `container-scan-source-code` | `true` | Scan source code and dependencies before build |
+| `container-scan-dockerfile` | `true` | Scan Dockerfile for misconfigurations |
+| `container-image-scan-enabled` | `true` | Enable post-build image scan |
+| `container-trivy-severity` | `HIGH,CRITICAL` | Trivy severity levels to scan |
+| `container-trivy-ignore-unfixed` | `false` | Ignore vulnerabilities without available fixes |
+| `container-trivy-timeout` | `10m0s` | Trivy scan timeout duration |
+| `container-trivy-skip-dirs` | `""` | Directories to skip during Trivy scan |
+| `container-trivy-skip-files` | `""` | Files to skip during Trivy scan |
+| `container-upload-sarif` | `true` | Upload vulnerability results to GitHub Security tab |
+| `container-sarif-category-source` | `trivy-source-scan` | SARIF category for source code scan |
+| `container-sarif-category-dockerfile` | `trivy-dockerfile-scan` | SARIF category for Dockerfile scan |
+| `container-sarif-category-image` | `trivy-container-scan` | SARIF category for image scan |
+| `container-vulnerability-comment-enabled` | `true` | Add vulnerability results to PR comments |
+| `container-enable-image-comparison` | `false` | Compare vulnerabilities with a baseline image |
+| `container-comparison-baseline-image` | `""` | Baseline image tag for comparison |
+| `container-fail-on-vulnerability` | `false` | Fail build when vulnerabilities are found at severity threshold |
+| `container-commit-convention-enabled` | `false` | Enable convention-based build filtering |
+| `container-commit-convention` | `clean-commit` | Commit convention for build filtering |
+| `container-build-trigger-types` | `""` | Commit types that trigger container build |
+| `container-build-skip-types` | `""` | Commit types that skip container build |
+| `container-release-tag-pattern` | `^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$` | Regex pattern for release tags that trigger container build |
+| `container-bot-detection` | `true` | Auto-detect bot actors and skip build |
+| `container-bot-detection-mode` | `smart` | Identity source for bot detection (smart, actor, or pr-author) |
+| `container-floating-tags` | `false` | Push a mutable floating tag for non-release builds |
+
+### Package inputs
+
+| Input | Default | Description |
+|-------|---------|-------------|
+| `package-registry` | `both` | Package registry target (npm, github, or both) |
+| `package-dry-run` | `false` | Run package primitive in dry-run mode |
+| `package-npm-registry-url` | `https://registry.npmjs.org` | npm registry URL |
+| `package-github-registry-url` | `https://npm.pkg.github.com` | GitHub Packages registry URL |
+| `package-scope` | `""` | Package scope for GitHub Packages |
+| `package-path` | `./package.json` | Path to package manifest |
+| `package-build-script` | `build` | Build script to run before publishing |
+| `package-manager` | `auto` | Package manager to use (npm, yarn, pnpm, bun, auto) |
+| `package-version-prefix` | `""` | Prefix for package version tags |
+| `package-audit-enabled` | `true` | Enable package-manager-aware security scanning |
+| `package-audit-level` | `high` | Minimum severity level for package security scanning |
+| `package-fail-on-audit` | `false` | Fail package build when vulnerabilities are found |
+| `package-pr-comment-enabled` | `true` | Enable PR comments with package install instructions |
+| `package-pr-comment-template` | `""` | Custom PR comment template |
+| `package-publish-enabled` | `true` | Enable publishing to package registry |
+| `package-access` | `public` | Access level for scoped packages |
+| `package-monorepo` | `false` | Enable monorepo mode |
+| `package-paths` | `""` | Comma-separated package manifest paths (monorepo mode) |
+| `package-workspace-detection` | `true` | Auto-detect workspaces from root package.json |
+| `package-changed-only` | `true` | Only build/publish changed packages (monorepo mode) |
+| `package-dependency-order` | `true` | Build packages in dependency order |
+| `package-commit-convention-enabled` | `false` | Enable convention-based package build filtering |
+| `package-commit-convention` | `clean-commit` | Commit convention for package build filtering |
+| `package-build-trigger-types` | `""` | Commit types that trigger package build |
+| `package-build-skip-types` | `""` | Commit types that skip package build |
+| `package-bot-detection` | `true` | Auto-detect bots and fall back to validation-only mode |
+
+### Release inputs
+
+| Input | Default | Description |
+|-------|---------|-------------|
+| `release-changelog-path` | `./CHANGELOG.md` | Changelog path |
+| `release-draft` | `false` | Create GitHub release as draft |
+| `release-prerelease` | `false` | Mark GitHub release as prerelease |
+| `release-dry-run` | `false` | Run release primitive in dry-run mode |
+| `release-version-prefix` | `v` | Tag version prefix |
+| `release-create` | `true` | Enable GitHub Release creation |
+| `release-update-major-tag` | `false` | Move major version tag (`vN`) to new release |
+| `release-initial-version` | `0.1.0` | Initial version when no tags exist |
+| `release-prerelease-prefix` | `""` | Prefix for prerelease versions |
+| `release-changelog-enabled` | `true` | Enable automatic changelog generation |
+| `release-commit-type-mapping` | `""` | JSON mapping of commit types to changelog sections |
+| `release-exclude-types` | `""` | Commit types to exclude from changelog |
+| `release-exclude-scopes` | `""` | Commit scopes to exclude from changelog |
+| `release-major-keywords` | `BREAKING CHANGE,BREAKING-CHANGE,breaking` | Keywords that trigger major bump |
+| `release-minor-keywords` | `""` | Keywords that trigger minor bump |
+| `release-patch-keywords` | `""` | Keywords that trigger patch bump |
+| `release-release-name-template` | `{tag}` | Release name template |
+| `release-git-user-name` | `WG Tech Labs` | Git user name for release commits |
+| `release-git-user-email` | `262751631+wgtechlabs-automation@users.noreply.github.com` | Git user email for release commits |
+| `release-commit-changelog` | `true` | Commit and push changelog changes |
+| `release-sync-version-files` | `true` | Sync resolved version into manifest files |
+| `release-version-file-paths` | `""` | Manifest file paths to update |
+| `release-commit-convention` | `clean-commit` | Commit convention for generated commits |
+| `release-tag-only` | `false` | Create tag only (skip GitHub Release) |
+| `release-fetch-depth` | `0` | Number of commits to fetch for changelog (0 = full history) |
+| `release-include-all-commits` | `false` | Include all commits in changelog |
+| `release-monorepo` | `false` | Enable monorepo mode |
+| `release-workspace-detection` | `true` | Auto-detect workspace packages |
+| `release-change-detection` | `both` | Package change detection mode (scope, path, or both) |
+| `release-scope-package-mapping` | `""` | JSON mapping of commit scopes to package paths |
+| `release-per-package-changelog` | `true` | Generate `CHANGELOG.md` in each package directory |
+| `release-root-changelog` | `true` | Generate aggregated root changelog |
+| `release-cascade-bumps` | `false` | Automatically bump dependent packages (reserved) |
+| `release-unified-version` | `false` | Use a single version for all packages |
+| `release-monorepo-root-release` | `true` | Create a unified root release in monorepo mode |
+| `release-package-manager` | `""` | Package manager for workspace detection |
+
 ## Required Secrets
 
 When using `secrets: inherit`, Build Flow automatically picks up the following secrets from your repository or organization:
@@ -201,8 +364,55 @@ When using `secrets: inherit`, Build Flow automatically picks up the following s
 | `GITLEAKS_LICENSE` | `enable-gitleaks: true` (default) | Gitleaks license key |
 | `NPM_TOKEN` | `enable-package: true` + `package-registry: npm` or `both` | npm publish token |
 | `CODECOV_TOKEN` | Coverage reporting enabled | Codecov upload token |
+| `GHCR_TOKEN` | Optional override when `enable-container: true` + `container-registry: ghcr` or `both` | GHCR token override — uses built-in `GITHUB_TOKEN` when not set |
 
-GHCR (GitHub Container Registry) authentication uses the built-in `GITHUB_TOKEN` automatically — no extra secret is needed.
+GHCR (GitHub Container Registry) authentication uses the built-in `GITHUB_TOKEN` automatically — no extra secret is needed unless you set `GHCR_TOKEN` to override it.
+
+## Full Primitive Configuration
+
+This example keeps Build Flow orchestration while tuning package, container, and release primitives directly through `app.yml` passthrough inputs.
+
+```yaml
+name: Build Flow
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+
+permissions:
+  contents: write
+  packages: write
+  pull-requests: write
+  security-events: write
+  actions: read
+
+jobs:
+  build-flow:
+    uses: wgtechlabs/build-flow-action/.github/workflows/app.yml@main
+    secrets: inherit
+    with:
+      enable-package: true
+      enable-container: true
+      enable-release: true
+
+      package-registry: both
+      package-monorepo: true
+      package-paths: "packages/core/package.json,packages/cli/package.json"
+
+      container-registry: both
+      container-dockerfile: ./ops/docker/Dockerfile
+      container-context: ./apps/api
+      container-floating-tags: true
+      container-tag-prefix: api-
+
+      release-monorepo: true
+      release-unified-version: false
+      release-per-package-changelog: true
+      release-root-changelog: true
+      release-sync-version-files: true
+```
 
 ## Required Permissions
 
@@ -226,7 +436,7 @@ Build Flow orchestrates these WG Technology Labs primitives:
 - [`wgtechlabs/package-build-flow-action`](https://github.com/wgtechlabs/package-build-flow-action) — package publishing (npm, GitHub Packages)
 - [`wgtechlabs/container-build-flow-action`](https://github.com/wgtechlabs/container-build-flow-action) — container publishing (Docker Hub, GHCR)
 
-You don't need to install or configure these separately — Build Flow calls them internally with the correct sequencing and policy gates.
+You don't need to install these separately — Build Flow calls them internally with safe sequencing and policy gates, and now exposes their full configurable input surface through orchestration passthroughs.
 
 ## Security
 
