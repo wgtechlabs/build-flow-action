@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [0.1.9] - 2026-07-06
+
+### Changed
+
+- address review feedback in docs
+- update readme and architecture for full primitive input passthrough
+- clarify architecture principle for passthrough vs silent defaults (#38)
+- expose all package-build-flow-action inputs (#35)
+- expose all release-build-flow-action inputs (#34)
+- expose all container-build-flow-action inputs (#33)
+
+### Security
+
+- fix ghcr-token fallback to github.token when unset (#37)
+
 ## [0.1.8] - 2026-06-18
 
 ### Changed
