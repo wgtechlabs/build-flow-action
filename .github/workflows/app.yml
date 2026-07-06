@@ -153,11 +153,6 @@ on:
         required: false
         type: string
         default: ''
-      container-ghcr-token:
-        description: GHCR token override passed to container primitive (defaults to GITHUB_TOKEN)
-        required: false
-        type: string
-        default: ''
       container-ghcr-username:
         description: GHCR username override passed to container primitive (defaults to repository owner)
         required: false
@@ -593,7 +588,7 @@ jobs:
           dev-branch: ${{ inputs.dev-branch }}
           dockerhub-username: ${{ secrets.DOCKER_HUB_USERNAME }}
           dockerhub-token: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-          ghcr-token: ${{ inputs.container-ghcr-token }}
+          ghcr-token: ${{ secrets.GHCR_TOKEN }}
           ghcr-username: ${{ inputs.container-ghcr-username }}
           dockerfile: ${{ inputs.container-dockerfile }}
           context: ${{ inputs.container-context }}
