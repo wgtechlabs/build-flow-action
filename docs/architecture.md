@@ -40,15 +40,17 @@ This eliminates the original production failure mode: a release being published 
 
 ### Principle 2 — Never override primitive defaults
 
-Each primitive's author deliberately chose its defaults and must-have behavior. **This orchestration must preserve those defaults, never silently suppress or re-assert them.**
+Each primitive's author deliberately chose its defaults and must-have behavior. **This orchestration must preserve those defaults, never silently suppress or re-assert them.** There are exactly two legitimate ways to honor a default, and the distinction between them matters:
+
+1. **Silent default — input not exposed.** The orchestration forwards no value for the input at all; the primitive's own default governs invisibly. Reserve this for inputs a consumer should never need to touch (internal implementation details that aren't part of the orchestration's configurable surface). Forwarding a value here that merely repeats the default would still be a form of pinning: if the primitive later changes its default, the orchestration would silently freeze the old one.
+2. **Passthrough default — input exposed with a matching default.** The orchestration exposes the input as its own `workflow_call` input, and that input's default exactly matches the primitive's default. A consumer who never sets it gets identical behavior to calling the primitive directly; a consumer who wants different behavior now has a reachable toggle. This is the standard for anything on the orchestration's configurable surface — for example, `app.yml` exposes all 37 `release-build-flow-action` inputs this way.
 
 Concretely:
 
-- If a primitive default is correct as-is, the orchestration **does not forward a value for it at all** — the primitive's own default governs. Forwarding a value that merely repeats the default is still a form of pinning: if the primitive later changes its default, the orchestration would silently freeze the old one. So we leave it alone.
-- The orchestration only forwards a value when that value is part of **its own configurable surface** (an input a consumer is expected to set) **and** its default exactly matches the primitive's default.
-- A value-level divergence from a primitive default is a bug. Historically these crept in one at a time and had to be patched repeatedly; this document and the parity reference exist to stop that.
+- Choose pattern 2 (expose + matching default) for any input a consumer is expected to want to set; use pattern 1 (silent default) only for the rest.
+- A value-level divergence from a primitive default is a bug under either pattern. Historically these crept in one at a time and had to be patched repeatedly; this document and the parity reference exist to stop that.
 
-Example: `release-build-flow-action` defaults `sync-version-files` to `true` (it syncs the resolved version into `package.json`, `Cargo.toml`, etc.). `app.yml` exposes this as `release-sync-version-files` with a default of `true`, matching the primitive default exactly — a consumer who never sets it gets identical behavior to calling the primitive directly, while one who wants it off now has a reachable toggle.
+Example (pattern 2 — passthrough): `release-build-flow-action` defaults `sync-version-files` to `true` (it syncs the resolved version into `package.json`, `Cargo.toml`, etc.). `app.yml` exposes this as `release-sync-version-files` with a default of `true`, matching the primitive default exactly — a consumer who never sets it gets identical behavior to calling the primitive directly, while one who wants it off now has a reachable toggle. `package.yml` and `container.yml` don't expose it yet, so it remains a pattern-1 silent default there.
 
 ## The override surface
 
@@ -56,7 +58,7 @@ There are exactly **three** mechanisms through which the orchestration can break
 
 1. **Policy gate + event triggers.** The `context`/policy job decides whether a flow runs. A missing event trigger (for example `release: published`) or a too-strict gate can suppress a flow the primitive would otherwise run.
 2. **Job permissions.** Reusable-workflow job permissions are **capped by the caller**. A missing scope makes a primitive's default feature (PR comments, SARIF upload, registry publish, release commit) fail or silently no-op.
-3. **Forwarded input values.** Every value forwarded to a primitive must equal that primitive's default unless the consumer deliberately overrode it. The cleanest way to honor a default is to not forward it at all (see Principle 2).
+3. **Forwarded input values.** Every value forwarded to a primitive must equal that primitive's default unless the consumer deliberately overrode it — whether that value is a silent default (not exposed) or a passthrough default (exposed, matching) per Principle 2.
 
 ## Integration model
 
