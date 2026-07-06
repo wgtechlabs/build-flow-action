@@ -14,13 +14,13 @@ It does **not** reimplement build, publish, or release logic. That logic lives i
 
 `build-flow-action` orchestrates three independent, separately versioned primitive actions. Each one is a complete product on the GitHub Marketplace and owns its own defaults and behavior.
 
-| Primitive | Role | Pinned version (SHA) | Tag |
-|-----------|------|----------------------|-----|
-| [`wgtechlabs/release-build-flow-action`](https://github.com/wgtechlabs/release-build-flow-action) | Version bump, changelog, tag, GitHub Release | `caae411` | v1.7.0 |
-| [`wgtechlabs/package-build-flow-action`](https://github.com/wgtechlabs/package-build-flow-action) | Publish packages (npm, GitHub Packages) | `999bc41` | v2.1.2 |
-| [`wgtechlabs/container-build-flow-action`](https://github.com/wgtechlabs/container-build-flow-action) | Build and publish containers (Docker Hub, GHCR) | `7df0af8` | v1.8.1 |
+| Primitive | Role | Pinned version (SHA) | Upstream ref |
+|-----------|------|----------------------|--------------|
+| [`wgtechlabs/release-build-flow-action`](https://github.com/wgtechlabs/release-build-flow-action) | Version bump, changelog, tag, GitHub Release | `caae411` | `main` |
+| [`wgtechlabs/package-build-flow-action`](https://github.com/wgtechlabs/package-build-flow-action) | Publish packages (npm, GitHub Packages) | `999bc41` | `main` |
+| [`wgtechlabs/container-build-flow-action`](https://github.com/wgtechlabs/container-build-flow-action) | Build and publish containers (Docker Hub, GHCR) | `7df0af8` | `main` |
 
-All three are pinned by exact commit SHA (with a trailing version comment) in the reusable workflows. Bumping a primitive means updating the SHA **and** re-running the parity audit described below.
+All three are pinned by exact commit SHA (with a trailing ref comment, currently `# main`) in the reusable workflows. Bumping a primitive means updating the SHA **and** re-running the parity audit described below.
 
 ## Core principles
 
@@ -50,7 +50,7 @@ Concretely:
 - Choose pattern 2 (expose + matching default) for any input a consumer is expected to want to set; use pattern 1 (silent default) only for the rest.
 - A value-level divergence from a primitive default is a bug under either pattern. Historically these crept in one at a time and had to be patched repeatedly; this document and the parity reference exist to stop that.
 
-Example (pattern 2 — passthrough): `release-build-flow-action` defaults `sync-version-files` to `true` (it syncs the resolved version into `package.json`, `Cargo.toml`, etc.). `app.yml` exposes this as `release-sync-version-files` with a default of `true`, matching the primitive default exactly — a consumer who never sets it gets identical behavior to calling the primitive directly, while one who wants it off now has a reachable toggle. `package.yml` and `container.yml` don't expose it yet, so it remains a pattern-1 silent default there.
+Example (pattern 2 — passthrough): `release-build-flow-action` defaults `sync-version-files` to `true` (it syncs the resolved version into `package.json`, `Cargo.toml`, etc.). The orchestration exposes this as `release-sync-version-files` with a default of `true`, matching the primitive default exactly — a consumer who never sets it gets identical behavior to calling the primitive directly, while one who wants it off now has a reachable toggle.
 
 ## The override surface
 
@@ -114,13 +114,13 @@ Because reusable-workflow permissions are bounded by the caller, **example/consu
 
 - **package** — dual-registry publish, `pr-comment-enabled`, branch-aware flow detection.
 - **container** — dual-registry, Trivy source/dockerfile/image scans, SARIF upload, SBOM, provenance, bot-detection, PR comments.
-- **release** — `sync-version-files: true` (auto-syncs manifest versions; `app.yml` forwards it via `release-sync-version-files` with the same `true` default), `commit-changelog: true`, `create-release: true`, `commit-convention: clean-commit`; the first release patch-bumps from `initial-version`.
+- **release** — `sync-version-files: true` is now explicitly forwarded as `release-sync-version-files` with the same `true` default (so default behavior is unchanged), plus `commit-changelog: true`, `create-release: true`, `commit-convention: clean-commit`; the first release patch-bumps from `initial-version`.
 
 ### Consumer-facing passthroughs
 
-- **`app.yml`** exposes all 37 configurable inputs of `release-build-flow-action` (every input except `github-token`, which the primitive already defaults from `github.token`) as `release-*` prefixed inputs, each with a default matching the primitive's own default exactly — nothing is silently overridden. This includes the full monorepo release surface (`release-monorepo`, `release-workspace-detection`, `release-change-detection`, `release-scope-package-mapping`, `release-per-package-changelog`, `release-root-changelog`, `release-cascade-bumps`, `release-unified-version`, `release-monorepo-root-release`, `release-package-manager`), changelog tuning (`release-exclude-types`, `release-exclude-scopes`, `release-commit-type-mapping`, `release-major-keywords`, `release-minor-keywords`, `release-patch-keywords`), git identity (`release-git-user-name`, `release-git-user-email`), version-file sync (`release-sync-version-files`, `release-version-file-paths`), and misc toggles (`release-initial-version`, `release-prerelease-prefix`, `release-release-name-template`, `release-commit-changelog`, `release-commit-convention`, `release-tag-only`, `release-fetch-depth`, `release-include-all-commits`, `release-changelog-enabled`).
-- `release-update-major-tag` → `update-major-tag` (default `false` = primitive default). Lets action-repo consumers opt into moving the floating `vN` tag.
-- **`package.yml` and `container.yml` still only expose the original 7 release-primitive toggles** (`release-changelog-path`, `release-draft`, `release-prerelease`, `release-dry-run`, `release-version-prefix`, `release-create`, `release-update-major-tag`). Bringing them to full parity with `app.yml` is tracked separately.
+As of the v0.2 surface expansion, the orchestration now exposes the full consumer-configurable input surface of all three primitives (`container-build-flow-action`, `package-build-flow-action`, and `release-build-flow-action`) through wrapper workflows using matching passthrough defaults.
+
+For the full, current input list and defaults, see the **Inputs Reference** in [`README.md`](../README.md).
 
 ## Intentional design choices (by design — not bugs)
 
@@ -128,7 +128,7 @@ These behaviors look like divergences but are deliberate. Do not "fix" them back
 
 - **The policy gate is stricter than a primitive run in isolation.** The orchestration adds its own convention/branch gate and "build first, release last" sequencing on top of the primitives' own branch-aware detection. This safe-sequencing layer is the orchestration's reason to exist.
 - **`workflow_dispatch` and unknown events resolve to the `wip` flow.** This is the primitives' own behavior, preserved here.
-- **`sync-version-files` defaults to `true` at the primitive level; `app.yml` forwards it as `release-sync-version-files` with the same default** (see Principle 2) — `package.yml` and `container.yml` do not yet expose it and still leave it entirely to the primitive.
+- **`sync-version-files` defaults to `true` at the primitive level and is forwarded as `release-sync-version-files` with the same default** (see Principle 2), preserving behavior while making the toggle explicit for consumers.
 - **GitHub releases created with `GITHUB_TOKEN` do not trigger downstream `release:`-triggered workflows.** This is a GitHub platform behavior. The orchestration handles it by publishing artifacts before finalizing the release rather than relying on the `release` event.
 
 ## What this project must avoid
