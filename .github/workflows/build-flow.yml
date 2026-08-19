@@ -5,11 +5,13 @@ on:
     branches: [dev, main]
   push:
     branches: [dev, main]
+  release:
+    types: [published]
   workflow_dispatch:
 
 concurrency:
   group: build-flow-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
