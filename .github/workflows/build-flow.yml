@@ -1,0 +1,32 @@
+name: Build Flow
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+concurrency:
+  group: build-flow-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  packages: write
+  pull-requests: write
+  security-events: write
+  actions: read
+
+jobs:
+  build-flow:
+    uses: wgtechlabs/build-flow-action/.github/workflows/app.yml@v0.1.9
+    secrets: inherit
+    with:
+      ci-profile: custom
+      ci-test-command: echo "Self-test validation for build-flow-action orchestration"
+      enable-package: false
+      enable-container: false
+      release-update-major-tag: true
