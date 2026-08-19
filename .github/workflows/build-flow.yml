@@ -5,18 +5,14 @@ on:
     branches: [dev, main]
   push:
     branches: [dev, main]
-  release:
-    types: [published]
   workflow_dispatch:
 
 concurrency:
   group: build-flow-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: write
-  packages: write
-  pull-requests: write
   security-events: write
   actions: read
 
