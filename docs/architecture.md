@@ -16,11 +16,11 @@ It does **not** reimplement build, publish, or release logic. That logic lives i
 
 | Primitive | Role | Pinned version (SHA) | Upstream ref |
 |-----------|------|----------------------|--------------|
-| [`wgtechlabs/release-build-flow-action`](https://github.com/wgtechlabs/release-build-flow-action) | Version bump, changelog, tag, GitHub Release | `5e43e8a06d9ea39d2dac5c0246a018f29fe0b635` | PR #33 |
-| [`wgtechlabs/package-build-flow-action`](https://github.com/wgtechlabs/package-build-flow-action) | Publish packages (npm, GitHub Packages) | `3632392ecc4651713babb4ebc430596724f1a231` | PR #41 |
-| [`wgtechlabs/container-build-flow-action`](https://github.com/wgtechlabs/container-build-flow-action) | Build and publish containers (Docker Hub, GHCR) | `7779e7cc816a1eaa3f5c34ce6c7e584455ca3572` | PR #56 |
+| [`wgtechlabs/release-build-flow-action`](https://github.com/wgtechlabs/release-build-flow-action) | Version bump, changelog, tag, GitHub Release | `6df9cb42c24c296d902150d051a0b6be4422cccc` | v1.8.0 |
+| [`wgtechlabs/package-build-flow-action`](https://github.com/wgtechlabs/package-build-flow-action) | Publish packages (npm, GitHub Packages) | `9be4582316267a397955254e0f80cfe0b9454ab2` | v2.2.0 |
+| [`wgtechlabs/container-build-flow-action`](https://github.com/wgtechlabs/container-build-flow-action) | Build and publish containers (Docker Hub, GHCR) | `fb5c0662b33f7702bc1ccf85350689436989f606` | v1.9.0 |
 
-All three are pinned by exact commit SHA (with a trailing PR comment) in the reusable workflows. Bumping a primitive means updating the SHA **and** re-running the parity audit described below.
+All three are pinned by exact commit SHA (with a trailing release-version comment) in the reusable workflows. Bumping a primitive means updating the SHA **and** re-running the parity audit described below.
 
 ## Core principles
 
