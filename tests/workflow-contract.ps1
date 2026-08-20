@@ -35,19 +35,19 @@ if ($env:GITHUB_EVENT_NAME) {
 
 $contracts = @{
   'app.yml' = @(
-    'wgtechlabs/release-build-flow-action@5e43e8a06d9ea39d2dac5c0246a018f29fe0b635',
-    'wgtechlabs/container-build-flow-action@7779e7cc816a1eaa3f5c34ce6c7e584455ca3572',
-    'wgtechlabs/package-build-flow-action@3632392ecc4651713babb4ebc430596724f1a231',
+    'wgtechlabs/release-build-flow-action@6df9cb42c24c296d902150d051a0b6be4422cccc # v1.8.0',
+    'wgtechlabs/container-build-flow-action@fb5c0662b33f7702bc1ccf85350689436989f606 # v1.9.0',
+    'wgtechlabs/package-build-flow-action@9be4582316267a397955254e0f80cfe0b9454ab2 # v2.2.0',
     'version-plan:', 'planned-version-tag:', 'planned-version-bump-type:', 'artifact-published:'
   )
   'package.yml' = @(
-    'wgtechlabs/release-build-flow-action@5e43e8a06d9ea39d2dac5c0246a018f29fe0b635',
-    'wgtechlabs/package-build-flow-action@3632392ecc4651713babb4ebc430596724f1a231',
+    'wgtechlabs/release-build-flow-action@6df9cb42c24c296d902150d051a0b6be4422cccc # v1.8.0',
+    'wgtechlabs/package-build-flow-action@9be4582316267a397955254e0f80cfe0b9454ab2 # v2.2.0',
     'version-plan:', 'planned-version:', 'planned-npm-tag:', 'artifact-published:'
   )
   'container.yml' = @(
-    'wgtechlabs/release-build-flow-action@5e43e8a06d9ea39d2dac5c0246a018f29fe0b635',
-    'wgtechlabs/container-build-flow-action@7779e7cc816a1eaa3f5c34ce6c7e584455ca3572',
+    'wgtechlabs/release-build-flow-action@6df9cb42c24c296d902150d051a0b6be4422cccc # v1.8.0',
+    'wgtechlabs/container-build-flow-action@fb5c0662b33f7702bc1ccf85350689436989f606 # v1.9.0',
     'version-plan:', 'planned-version-tag:', 'artifact-published:'
   )
 }
