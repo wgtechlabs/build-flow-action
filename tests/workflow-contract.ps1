@@ -12,7 +12,7 @@ function Test-MainReleaseCandidate {
   )
 
   $isMainPush = $EventName -eq 'push' -and $Ref -eq "refs/heads/$MainBranch"
-  $isMergedPullRequest = $EventName -ne 'push' -and $BaseRef -eq $MainBranch
+  $isMergedPullRequest = $EventName -eq 'pull_request' -and $Ref -like 'refs/pull/*/merge' -and $BaseRef -eq $MainBranch
 
   return $isMainPush -and -not $isMergedPullRequest
 }
@@ -38,7 +38,9 @@ $contracts = @{
     'wgtechlabs/release-build-flow-action@6df9cb42c24c296d902150d051a0b6be4422cccc # v1.8.0',
     'wgtechlabs/container-build-flow-action@fb5c0662b33f7702bc1ccf85350689436989f606 # v1.9.0',
     'wgtechlabs/package-build-flow-action@9be4582316267a397955254e0f80cfe0b9454ab2 # v2.2.0',
-    'version-plan:', 'planned-version-tag:', 'planned-version-bump-type:', 'artifact-published:'
+    'version-plan:', 'planned-version-tag:', 'planned-version-bump-type:', 'artifact-published:',
+    'Finalization skipped: package did not publish.',
+    'Finalization skipped: container did not publish.'
   )
   'package.yml' = @(
     'wgtechlabs/release-build-flow-action@6df9cb42c24c296d902150d051a0b6be4422cccc # v1.8.0',

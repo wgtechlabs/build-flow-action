@@ -1038,7 +1038,13 @@ jobs:
               finalize_ready=true
             fi
             if [[ "$finalize_ready" != "true" ]]; then
-              echo "- Finalization skipped: no enabled artifact target reported publication."
+              if [[ "$PACKAGE_ENABLED" == "true" && "$CONTAINER_ENABLED" != "true" ]]; then
+                echo "- Finalization skipped: package did not publish."
+              elif [[ "$CONTAINER_ENABLED" == "true" && "$PACKAGE_ENABLED" != "true" ]]; then
+                echo "- Finalization skipped: container did not publish."
+              else
+                echo "- Finalization skipped: no enabled artifact target reported publication."
+              fi
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
