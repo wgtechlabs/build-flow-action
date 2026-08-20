@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [0.2.0] - 2026-08-20
+
+### Added
+
+- add artifact-first releases (#41)
+
+### Changed
+
+- finish review fixes
+- pin primitive release refs (#43)
+- scope release concurrency and fix contract test
+- add unified build flow entry workflow
+
 ## [0.1.9] - 2026-07-06
 
 ### Changed
