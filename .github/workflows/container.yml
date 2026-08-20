@@ -174,7 +174,7 @@ on:
         value: ${{ jobs.container.outputs.artifact-published || 'false' }}
 
 concurrency:
-  group: build-flow-release-${{ github.repository }}-${{ inputs.main-branch }}
+  group: build-flow-release-${{ github.repository }}-${{ inputs.main-branch }}-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:

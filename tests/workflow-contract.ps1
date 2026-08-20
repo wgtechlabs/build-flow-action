@@ -2,11 +2,35 @@ $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
 $mainBranch = 'main'
-$isMainPush = 'push' -eq 'push' -and 'refs/heads/main' -eq "refs/heads/$mainBranch"
-$isMergedPullRequest = 'pull_request' -eq 'push' -and 'refs/pull/41/merge' -eq "refs/heads/$mainBranch"
 
-if (-not $isMainPush -or $isMergedPullRequest) {
-  throw 'Only a push to main can select artifact-first release orchestration'
+function Test-MainReleaseCandidate {
+  param(
+    [string]$EventName,
+    [string]$Ref,
+    [string]$BaseRef,
+    [string]$MainBranch
+  )
+
+  $isMainPush = $EventName -eq 'push' -and $Ref -eq "refs/heads/$MainBranch"
+  $isMergedPullRequest = $EventName -ne 'push' -and $BaseRef -eq $MainBranch
+
+  return $isMainPush -and -not $isMergedPullRequest
+}
+
+foreach ($scenario in @(
+  @{ Name = 'push to main'; EventName = 'push'; Ref = "refs/heads/$mainBranch"; BaseRef = ''; Expected = $true },
+  @{ Name = 'push to dev'; EventName = 'push'; Ref = 'refs/heads/dev'; BaseRef = ''; Expected = $false },
+  @{ Name = 'merged pull request into main'; EventName = 'pull_request'; Ref = 'refs/pull/41/merge'; BaseRef = $mainBranch; Expected = $false }
+)) {
+  $actual = Test-MainReleaseCandidate -EventName $scenario.EventName -Ref $scenario.Ref -BaseRef $scenario.BaseRef -MainBranch $mainBranch
+  if ($actual -ne $scenario.Expected) {
+    throw "Release orchestration gating for '$($scenario.Name)' returned $actual but expected $($scenario.Expected)"
+  }
+}
+
+if ($env:GITHUB_EVENT_NAME) {
+  $isReleaseContext = Test-MainReleaseCandidate -EventName $env:GITHUB_EVENT_NAME -Ref $env:GITHUB_REF -BaseRef $env:GITHUB_BASE_REF -MainBranch $mainBranch
+  Write-Output "Current context ($env:GITHUB_EVENT_NAME $env:GITHUB_REF) selects artifact-first release orchestration: $isReleaseContext"
 }
 
 $contracts = @{
@@ -29,7 +53,7 @@ $contracts = @{
 }
 
 foreach ($flow in $contracts.Keys) {
-  $path = Join-Path $root ".github\workflows\$flow"
+  $path = Join-Path $root ".github/workflows/$flow"
   $content = Get-Content -Raw $path
 
   foreach ($required in $contracts[$flow]) {
@@ -40,7 +64,7 @@ foreach ($flow in $contracts.Keys) {
 
   foreach ($required in @(
     'concurrency:',
-    'group: build-flow-release-${{ github.repository }}-${{ inputs.main-branch }}',
+    'group: build-flow-release-${{ github.repository }}-${{ inputs.main-branch }}-${{ github.ref }}',
     "needs.context.outputs.is-main == 'true'",
     'if [[ "$GH_EVENT_NAME" == "push" && "$GH_REF" == "refs/heads/$INPUT_MAIN_BRANCH" ]]; then'
   )) {

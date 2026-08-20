@@ -657,7 +657,7 @@ on:
         value: ${{ jobs.container.outputs.artifact-published || 'false' }}
 
 concurrency:
-  group: build-flow-release-${{ github.repository }}-${{ inputs.main-branch }}
+  group: build-flow-release-${{ github.repository }}-${{ inputs.main-branch }}-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -1033,7 +1033,11 @@ jobs:
             if [[ "$PACKAGE_ENABLED" == "true" && "$PACKAGE_RESULT" != "success" ]] || [[ "$CONTAINER_ENABLED" == "true" && "$CONTAINER_RESULT" != "success" ]]; then
               echo "- Partial target failure: one or more enabled artifact jobs did not complete successfully."
             fi
-            if [[ "$PACKAGE_ENABLED" == "true" && "$PACKAGE_PUBLISHED" != "true" ]] && [[ "$CONTAINER_ENABLED" == "true" && "$CONTAINER_PUBLISHED" != "true" ]]; then
+            finalize_ready=false
+            if [[ "$PACKAGE_ENABLED" == "true" && "$PACKAGE_PUBLISHED" == "true" ]] || [[ "$CONTAINER_ENABLED" == "true" && "$CONTAINER_PUBLISHED" == "true" ]]; then
+              finalize_ready=true
+            fi
+            if [[ "$finalize_ready" != "true" ]]; then
               echo "- Finalization skipped: no enabled artifact target reported publication."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
