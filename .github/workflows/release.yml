@@ -18,7 +18,7 @@ jobs:
           fetch-depth: 0
 
       - id: release
-        uses: wgtechlabs/release-build-flow-action@v1
+        uses: wgtechlabs/release-build-flow-action@5e43e8a06d9ea39d2dac5c0246a018f29fe0b635 # PR #33
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           changelog-path: ./CHANGELOG.md

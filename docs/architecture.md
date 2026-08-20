@@ -16,11 +16,11 @@ It does **not** reimplement build, publish, or release logic. That logic lives i
 
 | Primitive | Role | Pinned version (SHA) | Upstream ref |
 |-----------|------|----------------------|--------------|
-| [`wgtechlabs/release-build-flow-action`](https://github.com/wgtechlabs/release-build-flow-action) | Version bump, changelog, tag, GitHub Release | `caae411` | `main` |
-| [`wgtechlabs/package-build-flow-action`](https://github.com/wgtechlabs/package-build-flow-action) | Publish packages (npm, GitHub Packages) | `999bc41` | `main` |
-| [`wgtechlabs/container-build-flow-action`](https://github.com/wgtechlabs/container-build-flow-action) | Build and publish containers (Docker Hub, GHCR) | `7df0af8` | `main` |
+| [`wgtechlabs/release-build-flow-action`](https://github.com/wgtechlabs/release-build-flow-action) | Version bump, changelog, tag, GitHub Release | `5e43e8a06d9ea39d2dac5c0246a018f29fe0b635` | PR #33 |
+| [`wgtechlabs/package-build-flow-action`](https://github.com/wgtechlabs/package-build-flow-action) | Publish packages (npm, GitHub Packages) | `3632392ecc4651713babb4ebc430596724f1a231` | PR #41 |
+| [`wgtechlabs/container-build-flow-action`](https://github.com/wgtechlabs/container-build-flow-action) | Build and publish containers (Docker Hub, GHCR) | `7779e7cc816a1eaa3f5c34ce6c7e584455ca3572` | PR #56 |
 
-All three are pinned by exact commit SHA (with a trailing ref comment, currently `# main`) in the reusable workflows. Bumping a primitive means updating the SHA **and** re-running the parity audit described below.
+All three are pinned by exact commit SHA (with a trailing PR comment) in the reusable workflows. Bumping a primitive means updating the SHA **and** re-running the parity audit described below.
 
 ## Core principles
 
@@ -32,11 +32,14 @@ A public release must be the **final** step, never the first. The orchestration 
 
 1. Prepare build context.
 2. Run CI and required quality/security gates.
-3. Build and publish the required artifacts (package, container).
-4. Verify everything succeeded.
-5. Only then create the tag and the GitHub Release.
+3. On a main release candidate, dry-run the release primitive once to create an immutable version plan.
+4. Build and publish the required artifacts (package, container) with that plan.
+5. Verify at least one enabled artifact primitive reported publication.
+6. Only then create the tag and the GitHub Release with the same plan.
 
 This eliminates the original production failure mode: a release being published first, the public release becoming visible, and the artifact build then failing — leaving a release with no artifacts behind it. The orchestration never relies on the `release` event as the trigger that produces artifacts.
+
+Main release candidates are serialized per repository and configured main branch, so two runs cannot publish artifacts for the same planned version.
 
 ### Principle 2 — Never override primitive defaults
 
@@ -78,14 +81,15 @@ Each flow runs the same staged model:
 
 1. **Detect context.** A policy job classifies the event — pull request, push to `dev`, push to `main`, manual dispatch, or release — and decides which flows are allowed to publish and whether the release may finalize.
 2. **Run gates.** The CI gate (lint/typecheck/test/build, profile-driven) plus Gitleaks; CodeQL runs as an independent scan.
-3. **Build and publish artifacts.** Package and/or container flows run when enabled and allowed by policy.
-4. **Finalize release (last).** The release job runs only after the gates and required artifact jobs succeed.
+3. **Plan main releases.** A dry-run release primitive calculates immutable version, tag, bump type, and monorepo package metadata.
+4. **Build and publish artifacts.** Main release candidates consume the plan and require a non-`none` bump; dev, PR, manual, and published-release events keep their legacy artifact flow.
+5. **Finalize release (last).** The release job runs only after CI, a successful version plan, and at least one enabled artifact primitive reports publication. The workflow summary surfaces any partial target failures.
 
 ## Branch and event model
 
 - **Pull request** → run CI and preview checks; do not publish a production release.
 - **Push to `dev`** → run CI; optionally publish development artifacts; no production release.
-- **Push to `main`** → run CI and gates; prepare version/release metadata; publish required artifacts; finalize the release only after success.
+- **Push to `main`** → run CI and gates; calculate one dry-run version plan; publish planned artifacts only for a non-`none` bump; finalize only after an enabled target reports publication.
 - **Release (`published`)** → allow artifact publishing on release events (so a manually published release can still produce artifacts). The orchestration does not depend on this event as the sole production trigger.
 - **Manual dispatch / unknown events** → resolve to the primitives' own `wip` flow.
 
