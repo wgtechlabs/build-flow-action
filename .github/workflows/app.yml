@@ -651,10 +651,10 @@ on:
     outputs:
       package-artifact-published:
         description: Whether the package primitive published to at least one registry
-        value: ${{ jobs.package.outputs.artifact-published }}
+        value: ${{ jobs.package.outputs.artifact-published || 'false' }}
       container-artifact-published:
         description: Whether the container primitive published to at least one registry
-        value: ${{ jobs.container.outputs.artifact-published }}
+        value: ${{ jobs.container.outputs.artifact-published || 'false' }}
 
 concurrency:
   group: build-flow-release-${{ github.repository }}-${{ inputs.main-branch }}
@@ -892,7 +892,7 @@ jobs:
       packages: write
       pull-requests: write
     outputs:
-      artifact-published: ${{ steps.package.outputs.artifact-published }}
+      artifact-published: ${{ steps.package.outputs.artifact-published || 'false' }}
     steps:
       - name: Run package primitive
         id: package
@@ -942,7 +942,7 @@ jobs:
       pull-requests: write
       security-events: write
     outputs:
-      artifact-published: ${{ steps.container.outputs.artifact-published }}
+      artifact-published: ${{ steps.container.outputs.artifact-published || 'false' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -1019,10 +1019,10 @@ jobs:
         env:
           PACKAGE_ENABLED: ${{ inputs.enable-package }}
           PACKAGE_RESULT: ${{ needs.package.result }}
-          PACKAGE_PUBLISHED: ${{ needs.package.outputs.artifact-published }}
+          PACKAGE_PUBLISHED: ${{ needs.package.outputs.artifact-published || 'false' }}
           CONTAINER_ENABLED: ${{ inputs.enable-container }}
           CONTAINER_RESULT: ${{ needs.container.result }}
-          CONTAINER_PUBLISHED: ${{ needs.container.outputs.artifact-published }}
+          CONTAINER_PUBLISHED: ${{ needs.container.outputs.artifact-published || 'false' }}
           PLAN_RESULT: ${{ needs.version-plan.result }}
         run: |
           {

@@ -171,7 +171,7 @@ on:
     outputs:
       artifact-published:
         description: Whether the container primitive published to at least one registry
-        value: ${{ jobs.container.outputs.artifact-published }}
+        value: ${{ jobs.container.outputs.artifact-published || 'false' }}
 
 concurrency:
   group: build-flow-release-${{ github.repository }}-${{ inputs.main-branch }}
@@ -342,7 +342,7 @@ jobs:
       pull-requests: write
       security-events: write
     outputs:
-      artifact-published: ${{ steps.container.outputs.artifact-published }}
+      artifact-published: ${{ steps.container.outputs.artifact-published || 'false' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -379,7 +379,7 @@ jobs:
         env:
           PLAN_RESULT: ${{ needs.version-plan.result }}
           CONTAINER_RESULT: ${{ needs.container.result }}
-          CONTAINER_PUBLISHED: ${{ needs.container.outputs.artifact-published }}
+          CONTAINER_PUBLISHED: ${{ needs.container.outputs.artifact-published || 'false' }}
         run: |
           {
             echo "## Artifact publishing"

@@ -291,7 +291,7 @@ on:
     outputs:
       artifact-published:
         description: Whether the package primitive published to at least one registry
-        value: ${{ jobs.package.outputs.artifact-published }}
+        value: ${{ jobs.package.outputs.artifact-published || 'false' }}
 
 concurrency:
   group: build-flow-release-${{ github.repository }}-${{ inputs.main-branch }}
@@ -470,7 +470,7 @@ jobs:
       packages: write
       pull-requests: write
     outputs:
-      artifact-published: ${{ steps.package.outputs.artifact-published }}
+      artifact-published: ${{ steps.package.outputs.artifact-published || 'false' }}
     steps:
       - name: Run package primitive
         id: package
@@ -522,7 +522,7 @@ jobs:
         env:
           PLAN_RESULT: ${{ needs.version-plan.result }}
           PACKAGE_RESULT: ${{ needs.package.result }}
-          PACKAGE_PUBLISHED: ${{ needs.package.outputs.artifact-published }}
+          PACKAGE_PUBLISHED: ${{ needs.package.outputs.artifact-published || 'false' }}
         run: |
           {
             echo "## Artifact publishing"
