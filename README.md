@@ -98,16 +98,18 @@ When you call `app.yml`, Build Flow runs this dependency graph:
 ```
 1. Context Detection     → determines branch, event, and policy
 2. CI Gate               → install, lint, typecheck, test, build + Gitleaks (matrix support)
-  ├── 3a. Package Publishing  → delegates to package-build-flow-action
-  ├── 3b. Container Publishing → delegates to container-build-flow-action
-   └── 4. Release Finalization  → creates GitHub Release LAST (after package + container)
+3. Version Plan (main)   → release primitive dry run produces immutable version metadata
+  ├── 4a. Package Publishing  → consumes the planned version
+  ├── 4b. Container Publishing → consumes the planned tag
+   └── 5. Release Finalization  → creates GitHub Release LAST after an artifact publishes
    CodeQL (parallel)     → independent security scan (does not gate publishing or release)
 ```
 
-Default behavior (zero-config): CI + security + release finalization on main. In `app.yml`, package and container flows run when explicitly enabled. When enabled (or when using `package.yml` / `container.yml` directly), artifact publishing defaults to allowed on main, dev, PR, manual, and published release events unless you set a `publish-*-artifacts` input to `false`.
+Default behavior (zero-config): CI + security on main. Enable a package or container flow to publish artifacts and finalize a release. When enabled (or when using `package.yml` / `container.yml` directly), artifact publishing defaults to allowed on main, dev, PR, manual, and published release events unless you set a `publish-*-artifacts` input to `false`.
 
 Key behaviors:
-- **Release is always last** — no public release until all artifacts succeed
+- **Immutable main releases** — a dry-run release plan supplies one version to every planned artifact and finalization
+- **Release is always last** — no public release until at least one enabled artifact reports publication
 - **Smart check visibility** — only relevant checks appear on your PRs (no skipped noise)
 - **Matrix validation** — test across multiple runtime versions automatically
 - **Ecosystem caching** — dependency caching for npm, pip, Go modules
@@ -455,7 +457,7 @@ Build Flow is designed for the [Clean Flow](https://github.com/wgtechlabs/clean-
 |-------|----------|
 | PR to `dev` or `main` | CI + security gates + artifact publishing (enabled by default) |
 | Push to `dev` | CI + artifact publishing (enabled by default) |
-| Push to `main` | CI + publish artifacts + finalize release |
+| Push to `main` | CI + version plan + publish enabled artifacts + finalize release when one publishes |
 | Release published | CI + artifact publishing (release mode in container primitive) |
 | Manual dispatch | Configurable operational/recovery scenarios |
 
