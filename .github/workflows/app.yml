@@ -648,6 +648,17 @@ on:
         required: false
         type: string
         default: ''
+    outputs:
+      package-artifact-published:
+        description: Whether the package primitive published to at least one registry
+        value: ${{ jobs.package.outputs.artifact-published || 'false' }}
+      container-artifact-published:
+        description: Whether the container primitive published to at least one registry
+        value: ${{ jobs.container.outputs.artifact-published || 'false' }}
+
+concurrency:
+  group: build-flow-release-${{ github.repository }}-${{ inputs.main-branch }}-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -689,7 +700,7 @@ jobs:
           is_manual=false
           is_release=false
 
-          if [[ "$GH_REF" == "refs/heads/$INPUT_MAIN_BRANCH" ]] || [[ "$GH_EVENT_NAME" == "pull_request" && "$GH_PR_MERGED" == "true" && "$GH_BASE_REF" == "$INPUT_MAIN_BRANCH" ]]; then
+          if [[ "$GH_EVENT_NAME" == "push" && "$GH_REF" == "refs/heads/$INPUT_MAIN_BRANCH" ]]; then
             is_main=true
           fi
 
@@ -804,18 +815,88 @@ jobs:
       install-command: ${{ inputs.ci-install-command }}
       build-command: ${{ inputs.ci-build-command }}
 
+  version-plan:
+    name: Plan release version
+    if: ${{ needs.context.outputs.is-main == 'true' && needs.ci-gate.result == 'success' }}
+    needs: [context, ci-gate]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      planned-version: ${{ steps.release.outputs.version }}
+      planned-version-tag: ${{ steps.release.outputs.version-tag }}
+      planned-version-bump-type: ${{ steps.release.outputs.version-bump-type }}
+      planned-previous-version: ${{ steps.release.outputs.previous-version }}
+      planned-packages-updated: ${{ steps.release.outputs.packages-updated }}
+      planned-npm-tag: ${{ steps.npm-tag.outputs.planned-npm-tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Plan npm tag
+        id: npm-tag
+        shell: bash
+        run: echo "planned-npm-tag=latest" >> "$GITHUB_OUTPUT"
+
+      - name: Run release primitive (plan)
+        id: release
+        uses: wgtechlabs/release-build-flow-action@6df9cb42c24c296d902150d051a0b6be4422cccc # v1.8.0
+        with:
+          changelog-path: ${{ inputs.release-changelog-path }}
+          release-draft: ${{ inputs.release-draft }}
+          release-prerelease: ${{ inputs.release-prerelease }}
+          dry-run: true
+          version-prefix: ${{ inputs.release-version-prefix }}
+          create-release: ${{ inputs.release-create }}
+          update-major-tag: ${{ inputs.release-update-major-tag }}
+          main-branch: ${{ inputs.main-branch }}
+          initial-version: ${{ inputs.release-initial-version }}
+          prerelease-prefix: ${{ inputs.release-prerelease-prefix }}
+          changelog-enabled: ${{ inputs.release-changelog-enabled }}
+          commit-type-mapping: ${{ inputs.release-commit-type-mapping }}
+          exclude-types: ${{ inputs.release-exclude-types }}
+          exclude-scopes: ${{ inputs.release-exclude-scopes }}
+          major-keywords: ${{ inputs.release-major-keywords }}
+          minor-keywords: ${{ inputs.release-minor-keywords }}
+          patch-keywords: ${{ inputs.release-patch-keywords }}
+          release-name-template: ${{ inputs.release-release-name-template }}
+          git-user-name: ${{ inputs.release-git-user-name }}
+          git-user-email: ${{ inputs.release-git-user-email }}
+          commit-changelog: ${{ inputs.release-commit-changelog }}
+          sync-version-files: ${{ inputs.release-sync-version-files }}
+          version-file-paths: ${{ inputs.release-version-file-paths }}
+          commit-convention: ${{ inputs.release-commit-convention }}
+          tag-only: ${{ inputs.release-tag-only }}
+          fetch-depth: ${{ inputs.release-fetch-depth }}
+          include-all-commits: ${{ inputs.release-include-all-commits }}
+          monorepo: ${{ inputs.release-monorepo }}
+          workspace-detection: ${{ inputs.release-workspace-detection }}
+          change-detection: ${{ inputs.release-change-detection }}
+          scope-package-mapping: ${{ inputs.release-scope-package-mapping }}
+          per-package-changelog: ${{ inputs.release-per-package-changelog }}
+          root-changelog: ${{ inputs.release-root-changelog }}
+          cascade-bumps: ${{ inputs.release-cascade-bumps }}
+          unified-version: ${{ inputs.release-unified-version }}
+          monorepo-root-release: ${{ inputs.release-monorepo-root-release }}
+          package-manager: ${{ inputs.release-package-manager }}
+
   package:
     name: Package flow
-    if: ${{ inputs.enable-package && needs.context.outputs.allow-artifact-publish == 'true' }}
+    if: ${{ always() && inputs.enable-package && needs.context.outputs.allow-artifact-publish == 'true' && needs.ci-gate.result == 'success' && (needs.context.outputs.is-main != 'true' || (needs.version-plan.result == 'success' && needs.version-plan.outputs.planned-version-bump-type != 'none')) }}
     runs-on: ubuntu-latest
-    needs: [context, ci-gate]
+    needs: [context, ci-gate, version-plan]
     permissions:
       contents: write
       packages: write
       pull-requests: write
+    outputs:
+      artifact-published: ${{ steps.package.outputs.artifact-published || 'false' }}
     steps:
       - name: Run package primitive
-        uses: wgtechlabs/package-build-flow-action@999bc41848a8ee5f86d807ac5eab321a264d54de # main
+        id: package
+        uses: wgtechlabs/package-build-flow-action@9be4582316267a397955254e0f80cfe0b9454ab2 # v2.2.0
         with:
           registry: ${{ inputs.package-registry }}
           dry-run: ${{ inputs.package-dry-run }}
@@ -846,17 +927,22 @@ jobs:
           build-skip-types: ${{ inputs.package-build-skip-types }}
           bot-detection: ${{ inputs.package-bot-detection }}
           npm-token: ${{ secrets.NPM_TOKEN }}
+          planned-version: ${{ needs.context.outputs.is-main == 'true' && needs.version-plan.outputs.planned-version || '' }}
+          planned-npm-tag: ${{ needs.context.outputs.is-main == 'true' && needs.version-plan.outputs.planned-npm-tag || '' }}
+          planned-package-versions: ${{ inputs.release-monorepo && needs.version-plan.outputs.planned-packages-updated || '' }}
 
   container:
     name: Container flow
-    if: ${{ inputs.enable-container && needs.context.outputs.allow-artifact-publish == 'true' }}
+    if: ${{ always() && inputs.enable-container && needs.context.outputs.allow-artifact-publish == 'true' && needs.ci-gate.result == 'success' && (needs.context.outputs.is-main != 'true' || (needs.version-plan.result == 'success' && needs.version-plan.outputs.planned-version-bump-type != 'none')) }}
     runs-on: ubuntu-latest
-    needs: [context, ci-gate]
+    needs: [context, ci-gate, version-plan]
     permissions:
       contents: write
       packages: write
       pull-requests: write
       security-events: write
+    outputs:
+      artifact-published: ${{ steps.container.outputs.artifact-published || 'false' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -867,7 +953,8 @@ jobs:
         uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4.1.0
 
       - name: Run container primitive
-        uses: wgtechlabs/container-build-flow-action@7df0af8c4395db7df1927ef215445cd546e9e3f2 # main
+        id: container
+        uses: wgtechlabs/container-build-flow-action@fb5c0662b33f7702bc1ccf85350689436989f606 # v1.9.0
         with:
           registry: ${{ inputs.container-registry }}
           image-name: ${{ inputs.container-image-name }}
@@ -917,6 +1004,49 @@ jobs:
           bot-detection: ${{ inputs.container-bot-detection }}
           bot-detection-mode: ${{ inputs.container-bot-detection-mode }}
           floating-tags: ${{ inputs.container-floating-tags }}
+          planned-version-tag: ${{ needs.context.outputs.is-main == 'true' && needs.version-plan.outputs.planned-version-tag || '' }}
+
+  artifact-summary:
+    name: Summarize artifact publishing
+    if: ${{ always() }}
+    needs: [context, version-plan, package, container]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Report artifact outcomes
+        shell: bash
+        env:
+          PACKAGE_ENABLED: ${{ inputs.enable-package }}
+          PACKAGE_RESULT: ${{ needs.package.result }}
+          PACKAGE_PUBLISHED: ${{ needs.package.outputs.artifact-published || 'false' }}
+          CONTAINER_ENABLED: ${{ inputs.enable-container }}
+          CONTAINER_RESULT: ${{ needs.container.result }}
+          CONTAINER_PUBLISHED: ${{ needs.container.outputs.artifact-published || 'false' }}
+          PLAN_RESULT: ${{ needs.version-plan.result }}
+        run: |
+          {
+            echo "## Artifact publishing"
+            echo "- Version plan: $PLAN_RESULT"
+            echo "- Package: enabled=$PACKAGE_ENABLED, result=$PACKAGE_RESULT, published=$PACKAGE_PUBLISHED"
+            echo "- Container: enabled=$CONTAINER_ENABLED, result=$CONTAINER_RESULT, published=$CONTAINER_PUBLISHED"
+            if [[ "$PACKAGE_ENABLED" == "true" && "$PACKAGE_RESULT" != "success" ]] || [[ "$CONTAINER_ENABLED" == "true" && "$CONTAINER_RESULT" != "success" ]]; then
+              echo "- Partial target failure: one or more enabled artifact jobs did not complete successfully."
+            fi
+            finalize_ready=false
+            if [[ "$PACKAGE_ENABLED" == "true" && "$PACKAGE_PUBLISHED" == "true" ]] || [[ "$CONTAINER_ENABLED" == "true" && "$CONTAINER_PUBLISHED" == "true" ]]; then
+              finalize_ready=true
+            fi
+            if [[ "$finalize_ready" != "true" ]]; then
+              if [[ "$PACKAGE_ENABLED" == "true" && "$CONTAINER_ENABLED" != "true" ]]; then
+                echo "- Finalization skipped: package did not publish."
+              elif [[ "$CONTAINER_ENABLED" == "true" && "$PACKAGE_ENABLED" != "true" ]]; then
+                echo "- Finalization skipped: container did not publish."
+              else
+                echo "- Finalization skipped: no enabled artifact target reported publication."
+              fi
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
   release:
     name: Release finalize (last)
@@ -924,11 +1054,13 @@ jobs:
     needs:
       - context
       - ci-gate
+      - version-plan
       - package
       - container
+      - artifact-summary
     permissions:
       contents: write
-    if: ${{ always() && needs.context.outputs.allow-release-finalize == 'true' && needs.ci-gate.result == 'success' && (inputs.enable-package == false || needs.package.result == 'success') && (inputs.enable-container == false || needs.container.result == 'success') }}
+    if: ${{ always() && needs.context.outputs.allow-release-finalize == 'true' && needs.ci-gate.result == 'success' && needs.version-plan.result == 'success' && needs.version-plan.outputs.planned-version-bump-type != 'none' && ((inputs.enable-package && needs.package.outputs.artifact-published == 'true') || (inputs.enable-container && needs.container.outputs.artifact-published == 'true')) }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -936,7 +1068,7 @@ jobs:
           fetch-depth: 0
 
       - name: Run release primitive (finalize)
-        uses: wgtechlabs/release-build-flow-action@caae4110eb1768fda7b73cf2a86a10f3697cdf6b # main
+        uses: wgtechlabs/release-build-flow-action@6df9cb42c24c296d902150d051a0b6be4422cccc # v1.8.0
         with:
           changelog-path: ${{ inputs.release-changelog-path }}
           release-draft: ${{ inputs.release-draft }}
@@ -947,7 +1079,6 @@ jobs:
           update-major-tag: ${{ inputs.release-update-major-tag }}
           main-branch: ${{ inputs.main-branch }}
           initial-version: ${{ inputs.release-initial-version }}
-          prerelease-prefix: ${{ inputs.release-prerelease-prefix }}
           changelog-enabled: ${{ inputs.release-changelog-enabled }}
           commit-type-mapping: ${{ inputs.release-commit-type-mapping }}
           exclude-types: ${{ inputs.release-exclude-types }}
@@ -975,3 +1106,7 @@ jobs:
           unified-version: ${{ inputs.release-unified-version }}
           monorepo-root-release: ${{ inputs.release-monorepo-root-release }}
           package-manager: ${{ inputs.release-package-manager }}
+          planned-version: ${{ needs.version-plan.outputs.planned-version }}
+          planned-version-tag: ${{ needs.version-plan.outputs.planned-version-tag }}
+          planned-version-bump-type: ${{ needs.version-plan.outputs.planned-version-bump-type }}
+          planned-previous-version: ${{ needs.version-plan.outputs.planned-previous-version }}
