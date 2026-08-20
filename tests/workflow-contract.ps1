@@ -1,6 +1,14 @@
 $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
+$mainBranch = 'main'
+$isMainPush = 'push' -eq 'push' -and 'refs/heads/main' -eq "refs/heads/$mainBranch"
+$isMergedPullRequest = 'pull_request' -eq 'push' -and 'refs/pull/41/merge' -eq "refs/heads/$mainBranch"
+
+if (-not $isMainPush -or $isMergedPullRequest) {
+  throw 'Only a push to main can select artifact-first release orchestration'
+}
+
 $contracts = @{
   'app.yml' = @(
     'wgtechlabs/release-build-flow-action@5e43e8a06d9ea39d2dac5c0246a018f29fe0b635',
@@ -34,11 +42,14 @@ foreach ($flow in $contracts.Keys) {
     'concurrency:',
     'group: build-flow-release-${{ github.repository }}-${{ inputs.main-branch }}',
     "needs.context.outputs.is-main == 'true'",
-    "needs.context.outputs.is-manual != 'true'",
-    "needs.context.outputs.is-manual == 'true'"
+    'if [[ "$GH_EVENT_NAME" == "push" && "$GH_REF" == "refs/heads/$INPUT_MAIN_BRANCH" ]]; then'
   )) {
     if ($content -notmatch [regex]::Escape($required)) {
       throw "$flow must contain $required"
+    }
+
+    if ($content -match '\$GH_BASE_REF" == "\$INPUT_MAIN_BRANCH') {
+      throw "$flow must not classify merged pull requests as main release candidates"
     }
   }
 

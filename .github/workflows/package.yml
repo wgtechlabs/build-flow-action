@@ -308,7 +308,6 @@ jobs:
       contents: read
     outputs:
       is-main: ${{ steps.policy.outputs.is-main }}
-      is-manual: ${{ steps.policy.outputs.is-manual }}
       allow-package-publish: ${{ steps.policy.outputs.allow-package-publish }}
       allow-release-finalize: ${{ steps.policy.outputs.allow-release-finalize }}
     steps:
@@ -334,7 +333,7 @@ jobs:
           is_manual=false
           is_release=false
 
-          if [[ "$GH_REF" == "refs/heads/$INPUT_MAIN_BRANCH" ]] || [[ "$GH_EVENT_NAME" == "pull_request" && "$GH_PR_MERGED" == "true" && "$GH_BASE_REF" == "$INPUT_MAIN_BRANCH" ]]; then
+          if [[ "$GH_EVENT_NAME" == "push" && "$GH_REF" == "refs/heads/$INPUT_MAIN_BRANCH" ]]; then
             is_main=true
           fi
 
@@ -374,7 +373,6 @@ jobs:
 
           {
             echo "is-main=$is_main"
-            echo "is-manual=$is_manual"
             echo "allow-package-publish=$allow_package_publish"
             echo "allow-release-finalize=$allow_release_finalize"
           } >> "$GITHUB_OUTPUT"
@@ -422,7 +420,7 @@ jobs:
 
   version-plan:
     name: Plan release version
-    if: ${{ needs.context.outputs.is-main == 'true' && needs.context.outputs.is-manual != 'true' && needs.ci-gate.result == 'success' }}
+    if: ${{ needs.context.outputs.is-main == 'true' && needs.ci-gate.result == 'success' }}
     needs: [context, ci-gate]
     runs-on: ubuntu-latest
     permissions:
@@ -463,7 +461,7 @@ jobs:
   package:
     name: Build and publish package
     runs-on: ubuntu-latest
-    if: ${{ always() && needs.context.outputs.allow-package-publish == 'true' && needs.ci-gate.result == 'success' && (needs.context.outputs.is-main != 'true' || needs.context.outputs.is-manual == 'true' || (needs.version-plan.result == 'success' && needs.version-plan.outputs.planned-version-bump-type != 'none')) }}
+    if: ${{ always() && needs.context.outputs.allow-package-publish == 'true' && needs.ci-gate.result == 'success' && (needs.context.outputs.is-main != 'true' || (needs.version-plan.result == 'success' && needs.version-plan.outputs.planned-version-bump-type != 'none')) }}
     needs: [context, ci-gate, version-plan]
     permissions:
       contents: write

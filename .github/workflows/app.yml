@@ -700,7 +700,7 @@ jobs:
           is_manual=false
           is_release=false
 
-          if [[ "$GH_REF" == "refs/heads/$INPUT_MAIN_BRANCH" ]] || [[ "$GH_EVENT_NAME" == "pull_request" && "$GH_PR_MERGED" == "true" && "$GH_BASE_REF" == "$INPUT_MAIN_BRANCH" ]]; then
+          if [[ "$GH_EVENT_NAME" == "push" && "$GH_REF" == "refs/heads/$INPUT_MAIN_BRANCH" ]]; then
             is_main=true
           fi
 
@@ -817,7 +817,7 @@ jobs:
 
   version-plan:
     name: Plan release version
-    if: ${{ needs.context.outputs.is-main == 'true' && needs.context.outputs.is-manual != 'true' && needs.ci-gate.result == 'success' }}
+    if: ${{ needs.context.outputs.is-main == 'true' && needs.ci-gate.result == 'success' }}
     needs: [context, ci-gate]
     runs-on: ubuntu-latest
     permissions:
@@ -884,7 +884,7 @@ jobs:
 
   package:
     name: Package flow
-    if: ${{ always() && inputs.enable-package && needs.context.outputs.allow-artifact-publish == 'true' && needs.ci-gate.result == 'success' && (needs.context.outputs.is-main != 'true' || needs.context.outputs.is-manual == 'true' || (needs.version-plan.result == 'success' && needs.version-plan.outputs.planned-version-bump-type != 'none')) }}
+    if: ${{ always() && inputs.enable-package && needs.context.outputs.allow-artifact-publish == 'true' && needs.ci-gate.result == 'success' && (needs.context.outputs.is-main != 'true' || (needs.version-plan.result == 'success' && needs.version-plan.outputs.planned-version-bump-type != 'none')) }}
     runs-on: ubuntu-latest
     needs: [context, ci-gate, version-plan]
     permissions:
@@ -933,7 +933,7 @@ jobs:
 
   container:
     name: Container flow
-    if: ${{ always() && inputs.enable-container && needs.context.outputs.allow-artifact-publish == 'true' && needs.ci-gate.result == 'success' && (needs.context.outputs.is-main != 'true' || needs.context.outputs.is-manual == 'true' || (needs.version-plan.result == 'success' && needs.version-plan.outputs.planned-version-bump-type != 'none')) }}
+    if: ${{ always() && inputs.enable-container && needs.context.outputs.allow-artifact-publish == 'true' && needs.ci-gate.result == 'success' && (needs.context.outputs.is-main != 'true' || (needs.version-plan.result == 'success' && needs.version-plan.outputs.planned-version-bump-type != 'none')) }}
     runs-on: ubuntu-latest
     needs: [context, ci-gate, version-plan]
     permissions:
