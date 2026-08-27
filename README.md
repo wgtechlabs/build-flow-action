@@ -294,7 +294,7 @@ Source of truth: `.github/workflows/app.yml` (`on.workflow_call.inputs`).
 | `package-scope` | `""` | Package scope for GitHub Packages |
 | `package-path` | `./package.json` | Path to package manifest |
 | `package-build-script` | `build` | Build script to run before publishing |
-| `package-manager` | `auto` | Package manager to use (npm, yarn, pnpm, bun, auto) |
+| `package-manager` | `auto` | Package manager to use (npm, yarn, pnpm, bun, auto). Bun is installed in the package job when selected, or when `auto` may resolve to it |
 | `package-version-prefix` | `""` | Prefix for package version tags |
 | `package-audit-enabled` | `true` | Enable package-manager-aware security scanning |
 | `package-audit-level` | `high` | Minimum severity level for package security scanning |
