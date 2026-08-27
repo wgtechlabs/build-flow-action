@@ -470,6 +470,13 @@ jobs:
     outputs:
       artifact-published: ${{ steps.package.outputs.artifact-published || 'false' }}
     steps:
+      # The package primitive installs, builds, and publishes with the resolved
+      # package manager, and bun is never present on the runner. `auto` resolves
+      # to bun whenever the consumer ships a bun lockfile, so cover it too.
+      - name: Setup Bun
+        if: ${{ inputs.package-manager == 'bun' || inputs.package-manager == 'auto' || inputs.package-manager == '' }}
+        uses: oven-sh/setup-bun@v2
+
       - name: Run package primitive
         id: package
         uses: wgtechlabs/package-build-flow-action@9be4582316267a397955254e0f80cfe0b9454ab2 # v2.2.0
