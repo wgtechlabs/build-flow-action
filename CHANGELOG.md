@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- build release artifacts from the finalized version commit before publishing the GitHub Release
+- ignore bot-authored release publication events to prevent duplicate artifact builds
 
 ## [0.1.8] - 2026-06-18
 
@@ -100,4 +104,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 - harden workflows against injection, pin actions, tighten permissions (#4)
-

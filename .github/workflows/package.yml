@@ -322,6 +322,7 @@ jobs:
           INPUT_DEV_BRANCH: ${{ inputs.dev-branch }}
           GH_EVENT_NAME: ${{ github.event_name }}
           GH_EVENT_ACTION: ${{ github.event.action }}
+          GH_SENDER_TYPE: ${{ github.event.sender.type }}
           INPUT_PUBLISH_DEV: ${{ inputs.publish-dev-artifacts }}
           INPUT_PUBLISH_PR: ${{ inputs.publish-pr-artifacts }}
           INPUT_PUBLISH_MANUAL: ${{ inputs.publish-manual-artifacts }}
@@ -349,7 +350,7 @@ jobs:
             is_manual=true
           fi
 
-          if [[ "$GH_EVENT_NAME" == "release" && "$GH_EVENT_ACTION" == "published" ]]; then
+          if [[ "$GH_EVENT_NAME" == "release" && "$GH_EVENT_ACTION" == "published" && "$GH_SENDER_TYPE" != "Bot" ]]; then
             is_release=true
           fi
 
@@ -461,8 +462,8 @@ jobs:
   package:
     name: Build and publish package
     runs-on: ubuntu-latest
-    if: ${{ always() && needs.context.outputs.allow-package-publish == 'true' && needs.ci-gate.result == 'success' && (needs.context.outputs.is-main != 'true' || (needs.version-plan.result == 'success' && needs.version-plan.outputs.planned-version-bump-type != 'none')) }}
-    needs: [context, ci-gate, version-plan]
+    if: ${{ always() && needs.context.outputs.allow-package-publish == 'true' && needs.ci-gate.result == 'success' && (needs.context.outputs.is-main != 'true' || (needs.source-finalize.result == 'success' && needs.version-plan.outputs.planned-version-bump-type != 'none')) }}
+    needs: [context, ci-gate, version-plan, source-finalize]
     permissions:
       contents: write
       packages: write
@@ -470,6 +471,12 @@ jobs:
     outputs:
       artifact-published: ${{ steps.package.outputs.artifact-published || 'false' }}
     steps:
+      - name: Checkout finalized source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.source-finalize.outputs.finalized-sha || github.sha }}
+
       - name: Run package primitive
         id: package
         uses: wgtechlabs/package-build-flow-action@9be4582316267a397955254e0f80cfe0b9454ab2 # v2.2.0
@@ -507,10 +514,51 @@ jobs:
           planned-npm-tag: ${{ needs.context.outputs.is-main == 'true' && needs.version-plan.outputs.planned-npm-tag || '' }}
           planned-package-versions: ${{ inputs.package-monorepo && inputs.release-monorepo && needs.version-plan.outputs.planned-packages-updated || '' }}
 
+  source-finalize:
+    name: Finalize release source and tag
+    if: ${{ !inputs.release-dry-run && needs.context.outputs.allow-release-finalize == 'true' && needs.ci-gate.result == 'success' && needs.version-plan.result == 'success' && needs.version-plan.outputs.planned-version-bump-type != 'none' }}
+    needs: [context, ci-gate, version-plan]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      finalized-sha: ${{ steps.source.outputs.finalized-sha }}
+      changelog-entry: ${{ steps.release.outputs.changelog-entry }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Finalize source and create tag
+        id: release
+        uses: wgtechlabs/release-build-flow-action@6df9cb42c24c296d902150d051a0b6be4422cccc # v1.8.0
+        with:
+          changelog-path: ${{ inputs.release-changelog-path }}
+          release-draft: ${{ inputs.release-draft }}
+          release-prerelease: ${{ inputs.release-prerelease }}
+          dry-run: ${{ inputs.release-dry-run }}
+          version-prefix: ${{ inputs.release-version-prefix }}
+          create-release: false
+          tag-only: true
+          update-major-tag: ${{ inputs.release-update-major-tag }}
+          main-branch: ${{ inputs.main-branch }}
+          monorepo: ${{ inputs.release-monorepo }}
+          unified-version: ${{ inputs.release-unified-version }}
+          planned-version: ${{ needs.version-plan.outputs.planned-version }}
+          planned-version-tag: ${{ needs.version-plan.outputs.planned-version-tag }}
+          planned-version-bump-type: ${{ needs.version-plan.outputs.planned-version-bump-type }}
+          planned-previous-version: ${{ needs.version-plan.outputs.planned-previous-version }}
+
+      - name: Export finalized commit
+        id: source
+        shell: bash
+        run: echo "finalized-sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
   artifact-summary:
     name: Summarize artifact publishing
     if: ${{ always() }}
-    needs: [version-plan, package]
+    needs: [version-plan, source-finalize, package]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -532,10 +580,10 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   release:
-    name: Release finalize (last)
-    if: ${{ always() && needs.context.outputs.allow-release-finalize == 'true' && needs.ci-gate.result == 'success' && needs.version-plan.result == 'success' && needs.version-plan.outputs.planned-version-bump-type != 'none' && needs.package.outputs.artifact-published == 'true' }}
+    name: Release publish (last)
+    if: ${{ always() && inputs.release-create && needs.context.outputs.allow-release-finalize == 'true' && needs.source-finalize.result == 'success' && needs.package.outputs.artifact-published == 'true' }}
     runs-on: ubuntu-latest
-    needs: [context, ci-gate, version-plan, package, artifact-summary]
+    needs: [context, version-plan, source-finalize, package, artifact-summary]
     permissions:
       contents: write
     steps:
@@ -543,21 +591,19 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ needs.source-finalize.outputs.finalized-sha }}
 
-      - name: Run release primitive (finalize)
-        uses: wgtechlabs/release-build-flow-action@6df9cb42c24c296d902150d051a0b6be4422cccc # v1.8.0
-        with:
-          changelog-path: ${{ inputs.release-changelog-path }}
-          release-draft: ${{ inputs.release-draft }}
-          release-prerelease: ${{ inputs.release-prerelease }}
-          dry-run: ${{ inputs.release-dry-run }}
-          version-prefix: ${{ inputs.release-version-prefix }}
-          create-release: ${{ inputs.release-create }}
-          update-major-tag: ${{ inputs.release-update-major-tag }}
-          main-branch: ${{ inputs.main-branch }}
-          monorepo: ${{ inputs.release-monorepo }}
-          unified-version: ${{ inputs.release-unified-version }}
-          planned-version: ${{ needs.version-plan.outputs.planned-version }}
-          planned-version-tag: ${{ needs.version-plan.outputs.planned-version-tag }}
-          planned-version-bump-type: ${{ needs.version-plan.outputs.planned-version-bump-type }}
-          planned-previous-version: ${{ needs.version-plan.outputs.planned-previous-version }}
+      - name: Publish GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.version-plan.outputs.planned-version-tag }}
+          RELEASE_VERSION: ${{ needs.version-plan.outputs.planned-version }}
+          RELEASE_NOTES: ${{ needs.source-finalize.outputs.changelog-entry }}
+          RELEASE_DRAFT: ${{ inputs.release-draft }}
+          RELEASE_PRERELEASE: ${{ inputs.release-prerelease }}
+        run: |
+          args=("$RELEASE_TAG" --verify-tag --title "$RELEASE_TAG" --notes "${RELEASE_NOTES:-Release $RELEASE_VERSION}")
+          [[ "$RELEASE_DRAFT" == "true" ]] && args+=(--draft)
+          [[ "$RELEASE_PRERELEASE" == "true" ]] && args+=(--prerelease)
+          gh release create "${args[@]}"

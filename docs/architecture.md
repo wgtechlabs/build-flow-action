@@ -33,11 +33,12 @@ A public release must be the **final** step, never the first. The orchestration 
 1. Prepare build context.
 2. Run CI and required quality/security gates.
 3. On a main release candidate, dry-run the release primitive once to create an immutable version plan.
-4. Build and publish the required artifacts (package, container) with that plan.
-5. Verify at least one enabled artifact primitive reported publication.
-6. Only then create the tag and the GitHub Release with the same plan.
+4. Commit the version/changelog changes and create the release tag from that finalized commit.
+5. Build and publish every enabled artifact from that exact commit SHA.
+6. Verify every enabled artifact primitive reported publication.
+7. Only then publish the GitHub Release for the existing tag.
 
-This eliminates the original production failure mode: a release being published first, the public release becoming visible, and the artifact build then failing — leaving a release with no artifacts behind it. The orchestration never relies on the `release` event as the trigger that produces artifacts.
+This eliminates both production failure modes: publishing a release before its artifacts exist, and tagging a pre-bump artifact with the planned version. The orchestration never relies on the `release` event as the trigger that produces artifacts.
 
 Main release candidates are serialized per repository and configured main branch, so two runs cannot publish artifacts for the same planned version.
 
@@ -82,15 +83,16 @@ Each flow runs the same staged model:
 1. **Detect context.** A policy job classifies the event — pull request, push to `dev`, push to `main`, manual dispatch, or release — and decides which flows are allowed to publish and whether the release may finalize.
 2. **Run gates.** The CI gate (lint/typecheck/test/build, profile-driven) plus Gitleaks; CodeQL runs as an independent scan.
 3. **Plan main releases.** A dry-run release primitive calculates immutable version, tag, bump type, and monorepo package metadata.
-4. **Build and publish artifacts.** Main release candidates consume the plan and require a non-`none` bump; dev, PR, manual, and published-release events keep their legacy artifact flow.
-5. **Finalize release (last).** The release job runs only after CI, a successful version plan, and at least one enabled artifact primitive reports publication. The workflow summary surfaces any partial target failures.
+4. **Finalize source.** The release primitive commits version/changelog updates, creates the tag, and exports the resulting commit SHA without publishing a GitHub Release.
+5. **Build and publish artifacts.** Main release candidates check out the finalized SHA and consume the immutable plan; dev, PR, manual, and human-published-release events keep their legacy artifact flow.
+6. **Publish release (last).** The release job runs only after every enabled artifact primitive reports publication. It publishes the existing tag without rerunning version, tag, package, or container creation.
 
 ## Branch and event model
 
 - **Pull request** → run CI and preview checks; do not publish a production release.
 - **Push to `dev`** → run CI; optionally publish development artifacts; no production release.
 - **Push to `main`** → run CI and gates; calculate one dry-run version plan; publish planned artifacts only for a non-`none` bump; finalize only after an enabled target reports publication.
-- **Release (`published`)** → allow artifact publishing on release events (so a manually published release can still produce artifacts). The orchestration does not depend on this event as the sole production trigger.
+- **Release (`published`)** → allow artifact publishing for human-published releases. Bot-authored publication events are ignored so an orchestrated release cannot trigger a duplicate build.
 - **Manual dispatch / unknown events** → resolve to the primitives' own `wip` flow.
 
 ## Primitive parity reference
@@ -111,8 +113,8 @@ Because reusable-workflow permissions are bounded by the caller, **example/consu
 ### Required secrets / checkout per primitive
 
 - **package** — `npm-token` (`secrets.NPM_TOKEN`) is mandatory when `registry` includes npm (default `both`); the primitive hard-fails without it. The package primitive checks out its own repo internally (`fetch-depth: 0`) when no manifest is present, so the package job needs no external checkout.
-- **container** — `dockerhub-username` / `dockerhub-token` for Docker Hub (default registry `both`). The container job **must** check out the repo and **must** run `docker/setup-qemu-action` before the primitive, because the default `release-platforms` is multi-arch (`linux/amd64,linux/arm64`) and the primitive sets up buildx without QEMU.
-- **release** — requires `actions/checkout` with `fetch-depth: 0` before it runs (it reads full git history via `git log tag..HEAD`). Every workflow that finalizes a release must include this checkout.
+- **container** — `dockerhub-username` / `dockerhub-token` for Docker Hub (default registry `both`). The container job **must** check out the finalized commit and **must** run `docker/setup-qemu-action` before the primitive, because the primitive builds the caller workspace and the default `release-platforms` is multi-arch (`linux/amd64,linux/arm64`). Its built-in revision metadata uses the triggering `github.sha`, so the orchestration overrides `org.opencontainers.image.revision` with the finalized SHA.
+- **release** — requires `actions/checkout` with `fetch-depth: 0` before it runs. Its tag creation is not idempotent, so it runs once in tag-only mode to finalize source; the later GitHub Release publication must not invoke the primitive again.
 
 ### Must-have defaults preserved (do not override)
 
@@ -133,7 +135,7 @@ These behaviors look like divergences but are deliberate. Do not "fix" them back
 - **The policy gate is stricter than a primitive run in isolation.** The orchestration adds its own convention/branch gate and "build first, release last" sequencing on top of the primitives' own branch-aware detection. This safe-sequencing layer is the orchestration's reason to exist.
 - **`workflow_dispatch` and unknown events resolve to the `wip` flow.** This is the primitives' own behavior, preserved here.
 - **`sync-version-files` defaults to `true` at the primitive level and is forwarded as `release-sync-version-files` with the same default** (see Principle 2), preserving behavior while making the toggle explicit for consumers.
-- **GitHub releases created with `GITHUB_TOKEN` do not trigger downstream `release:`-triggered workflows.** This is a GitHub platform behavior. The orchestration handles it by publishing artifacts before finalizing the release rather than relying on the `release` event.
+- **GitHub releases created with `GITHUB_TOKEN` normally do not trigger downstream `release:` workflows.** Bot-authored release events are still explicitly ignored in case a caller supplies a token that does emit them.
 
 ## What this project must avoid
 

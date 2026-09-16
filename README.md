@@ -458,7 +458,8 @@ Build Flow is designed for the [Clean Flow](https://github.com/wgtechlabs/clean-
 | PR to `dev` or `main` | CI + security gates + artifact publishing (enabled by default) |
 | Push to `dev` | CI + artifact publishing (enabled by default) |
 | Push to `main` | CI + version plan + publish enabled artifacts + finalize release when one publishes |
-| Release published | CI + artifact publishing (release mode in container primitive) |
+| Release published by a user | CI + artifact publishing (release mode in container primitive) |
+| Release published by automation | Skipped to prevent a duplicate artifact build |
 | Manual dispatch | Configurable operational/recovery scenarios |
 
 ## Examples
