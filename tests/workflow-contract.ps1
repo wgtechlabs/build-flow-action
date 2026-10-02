@@ -87,6 +87,8 @@ foreach ($flow in $contracts.Keys) {
   }
 
   foreach ($required in @(
+    'uses: ./.github/workflows/ci.yml',
+    'uses: ./.github/workflows/codeql.yml',
     'concurrency:',
     'group: build-flow-release-${{ github.repository }}-${{ inputs.main-branch }}-${{ github.ref }}',
     "needs.context.outputs.is-main == 'true'",
