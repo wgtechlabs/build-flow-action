@@ -66,8 +66,10 @@ jobs:
       enable-codeql: false
       ci-profile: custom
       ci-test-command: python3 tests/container-images.py
+      publish-dev-artifacts: false
       publish-pr-artifacts: false
       publish-manual-artifacts: false
+      container-push-enabled: false
       container-images: '[{"image-name":"app"},{"image-name":"browser"}]'
 
   outputs:
