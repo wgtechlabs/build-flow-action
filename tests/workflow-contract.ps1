@@ -74,14 +74,6 @@ $contracts = @{
     'needs.source-finalize.result == ''success''',
     'Release publish (last)'
   )
-  'container.yml' = @(
-    'wgtechlabs/release-build-flow-action@6df9cb42c24c296d902150d051a0b6be4422cccc # v1.8.0',
-    'wgtechlabs/container-build-flow-action@fb5c0662b33f7702bc1ccf85350689436989f606 # v1.9.0',
-    'version-plan:', 'source-finalize:', 'finalized-sha:', 'planned-version-tag:', 'artifact-published:',
-    'ref: ${{ needs.source-finalize.outputs.finalized-sha || github.sha }}',
-    'needs.source-finalize.result == ''success''',
-    'Release publish (last)'
-  )
 }
 
 foreach ($flow in $contracts.Keys) {
@@ -133,8 +125,8 @@ foreach ($flow in $contracts.Keys) {
     if ($content -notmatch [regex]::Escape("(!inputs.enable-package || needs.package.outputs.artifact-published == 'true')")) {
       throw 'app.yml must require every enabled package artifact to publish before the release'
     }
-    if ($content -notmatch [regex]::Escape("(!inputs.enable-container || needs.container.outputs.artifact-published == 'true')")) {
-      throw 'app.yml must require every enabled container artifact to publish before the release'
+    if ($content -notmatch [regex]::Escape("(!inputs.enable-container || (needs.container.result == 'success' && needs.container.outputs.artifact-published == 'true'))")) {
+      throw 'app.yml must require the whole container matrix to succeed and publish before the release'
     }
     if ($content -notmatch [regex]::Escape('org.opencontainers.image.revision=${{ needs.source-finalize.outputs.finalized-sha || github.sha }}')) {
       throw 'app.yml must override container OCI revision metadata with the finalized source SHA'
@@ -144,10 +136,6 @@ foreach ($flow in $contracts.Keys) {
     if ($content.IndexOf($revisionLabel) -lt $content.IndexOf($callerLabels)) {
       throw 'app.yml must apply the finalized OCI revision after caller-provided labels'
     }
-  }
-
-  if ($flow -eq 'container.yml' -and $content -notmatch [regex]::Escape('org.opencontainers.image.revision=${{ needs.source-finalize.outputs.finalized-sha || github.sha }}')) {
-    throw 'container.yml must override container OCI revision metadata with the finalized source SHA'
   }
 
   if ($flow -eq 'package.yml') {
@@ -161,6 +149,39 @@ foreach ($flow in $contracts.Keys) {
         throw "package.yml must contain $required"
       }
     }
+  }
+}
+
+$wrapper = Get-Content -Raw (Join-Path $root '.github/workflows/container.yml')
+foreach ($required in @(
+  'uses: ./.github/workflows/app.yml',
+  'secrets: inherit',
+  'enable-container: true',
+  'value: ${{ jobs.container-flow.outputs.container-artifact-published }}',
+  'contents: write',
+  'packages: write',
+  'pull-requests: write',
+  'security-events: write',
+  'actions: read'
+)) {
+  if ($wrapper -notmatch [regex]::Escape($required)) {
+    throw "container.yml must delegate orchestration to app.yml with $required"
+  }
+}
+
+foreach ($forbidden in @('concurrency:', 'wgtechlabs/release-build-flow-action@', 'wgtechlabs/container-build-flow-action@')) {
+  if ($wrapper.Contains($forbidden)) {
+    throw "container.yml must not duplicate app.yml orchestration: $forbidden"
+  }
+}
+
+# Every public wrapper input must reach the shared implementation unchanged.
+$inputSection = ($wrapper -split '(?m)^    outputs:\r?$', 2)[0]
+foreach ($match in [regex]::Matches($inputSection, '(?m)^      ([a-z][a-z0-9-]+):\r?$')) {
+  $inputName = $match.Groups[1].Value
+  $forwarding = $inputName + ': ${{ inputs.' + $inputName + ' }}'
+  if (-not $wrapper.Contains($forwarding)) {
+    throw "container.yml must forward $inputName to app.yml"
   }
 }
 

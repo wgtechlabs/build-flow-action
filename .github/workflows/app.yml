@@ -258,6 +258,11 @@ on:
         required: false
         type: string
         default: both
+      container-images:
+        description: Optional JSON array of image definitions sharing one release version; empty preserves single-image inputs
+        required: false
+        type: string
+        default: ''
       container-image-name:
         description: Optional image name override passed to container primitive
         required: false
@@ -653,8 +658,8 @@ on:
         description: Whether the package primitive published to at least one registry
         value: ${{ jobs.package.outputs.artifact-published || 'false' }}
       container-artifact-published:
-        description: Whether the container primitive published to at least one registry
-        value: ${{ jobs.container.outputs.artifact-published || 'false' }}
+        description: Whether every configured container image published to at least one registry
+        value: ${{ jobs.artifact-summary.outputs.container-artifact-published }}
 
 concurrency:
   group: build-flow-release-${{ github.repository }}-${{ inputs.main-branch }}-${{ github.ref }}
@@ -670,6 +675,8 @@ jobs:
     permissions:
       contents: read
     outputs:
+      container-images: ${{ steps.images.outputs.images }}
+      multiple-images: ${{ steps.images.outputs.multiple-images }}
       is-main: ${{ steps.policy.outputs.is-main }}
       is-dev: ${{ steps.policy.outputs.is-dev }}
       is-pr: ${{ steps.policy.outputs.is-pr }}
@@ -678,6 +685,60 @@ jobs:
       allow-artifact-publish: ${{ steps.policy.outputs.allow-artifact-publish }}
       allow-release-finalize: ${{ steps.policy.outputs.allow-release-finalize }}
     steps:
+      - name: Resolve container images
+        id: images
+        shell: python
+        env:
+          IMAGES: ${{ inputs.enable-container && inputs.container-images || '' }}
+          DEFAULT_IMAGE_NAME: ${{ inputs.container-image-name }}
+          DEFAULT_DOCKERFILE: ${{ inputs.container-dockerfile }}
+          DEFAULT_CONTEXT: ${{ inputs.container-context }}
+          DEFAULT_BUILD_ARGS: ${{ inputs.container-build-args }}
+          DEFAULT_PLATFORMS: ${{ inputs.container-platforms }}
+          DEFAULT_RELEASE_PLATFORMS: ${{ inputs.container-release-platforms }}
+        run: |
+          import json, os, re, sys
+
+          fields = ('image-name', 'dockerfile', 'context', 'build-args', 'platforms', 'release-platforms')
+          defaults = {key: os.environ['DEFAULT_' + key.upper().replace('-', '_')] for key in fields}
+          raw = os.environ['IMAGES'].strip()
+          try:
+              images = json.loads(raw) if raw else [{}]
+              if not isinstance(images, list) or not 1 <= len(images) <= 256:
+                  raise ValueError('expected an array of 1 to 256 image objects')
+              names = set()
+              for image in images:
+                  if not isinstance(image, dict) or image.keys() - set(fields):
+                      raise ValueError('image objects contain unsupported fields')
+                  if any(not isinstance(value, str) for value in image.values()):
+                      raise ValueError('image fields must be strings')
+                  if raw:
+                      name = image.get('image-name', '')
+                      component = r'[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*'
+                      first, slash, _ = name.partition('/')
+                      has_registry = bool(slash) and ('.' in first or ':' in first or first == 'localhost')
+                      if has_registry or not re.fullmatch(component + r'(?:/' + component + r')*', name):
+                          raise ValueError('each image needs a lowercase image-name without a tag or registry')
+                      if name in names:
+                          raise ValueError('image-name values must be unique')
+                      names.add(name)
+                  for key in ('dockerfile', 'context', 'platforms'):
+                      if key in image and not image[key].strip():
+                          raise ValueError(key + ' must not be empty')
+              multiple = len(images) > 1
+              images = [dict(defaults, **image, **{'scan-suffix': f'-image-{index}' if multiple else ''})
+                        for index, image in enumerate(images)]
+              payload = json.dumps(images, separators=(',', ':'))
+              # Reserve room for policy outputs within GitHub's 1 MB UTF-16 job limit.
+              if len(payload.encode('utf-16-le')) > 900 * 1024:
+                  raise ValueError('resolved images exceed 900 KiB; use fewer images or smaller shared defaults')
+          except (ValueError, TypeError) as error:
+              sys.exit('::error::Invalid container-images: ' + str(error))
+
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('images=' + payload + '\n')
+              output.write('multiple-images=' + str(multiple).lower() + '\n')
+
       - name: Calculate policy
         id: policy
         shell: bash
@@ -946,8 +1007,12 @@ jobs:
           planned-package-versions: ${{ inputs.release-monorepo && needs.version-plan.outputs.planned-packages-updated || '' }}
 
   container:
-    name: Container flow
+    name: Container flow${{ needs.context.outputs.multiple-images == 'true' && format(' ({0})', matrix.image.image-name) || '' }}
     if: ${{ always() && inputs.enable-container && needs.context.outputs.allow-artifact-publish == 'true' && needs.ci-gate.result == 'success' && (needs.context.outputs.is-main != 'true' || inputs.release-dry-run || (needs.source-finalize.result == 'success' && needs.version-plan.outputs.planned-version-bump-type != 'none')) }}
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.context.outputs.container-images) }}
     runs-on: ubuntu-latest
     needs: [context, ci-gate, version-plan, source-finalize]
     permissions:
@@ -972,7 +1037,7 @@ jobs:
         uses: wgtechlabs/container-build-flow-action@fb5c0662b33f7702bc1ccf85350689436989f606 # v1.9.0
         with:
           registry: ${{ inputs.container-registry }}
-          image-name: ${{ inputs.container-image-name }}
+          image-name: ${{ matrix.image.image-name }}
           tag-prefix: ${{ inputs.container-tag-prefix }}
           tag-suffix: ${{ inputs.container-tag-suffix }}
           main-branch: ${{ inputs.main-branch }}
@@ -981,16 +1046,16 @@ jobs:
           dockerhub-token: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
           ghcr-token: ${{ secrets.GHCR_TOKEN || github.token }}
           ghcr-username: ${{ inputs.container-ghcr-username }}
-          dockerfile: ${{ inputs.container-dockerfile }}
-          context: ${{ inputs.container-context }}
-          platforms: ${{ inputs.container-platforms }}
-          release-platforms: ${{ inputs.container-release-platforms }}
-          build-args: ${{ inputs.container-build-args }}
+          dockerfile: ${{ matrix.image.dockerfile }}
+          context: ${{ matrix.image.context }}
+          platforms: ${{ matrix.image.platforms }}
+          release-platforms: ${{ matrix.image.release-platforms }}
+          build-args: ${{ matrix.image.build-args }}
           labels: |
             ${{ inputs.container-labels }}
             org.opencontainers.image.revision=${{ needs.source-finalize.outputs.finalized-sha || github.sha }}
           cache-enabled: ${{ inputs.container-cache-enabled }}
-          pr-comment-enabled: ${{ inputs.container-pr-comment-enabled }}
+          pr-comment-enabled: ${{ needs.context.outputs.multiple-images != 'true' && inputs.container-pr-comment-enabled }}
           pr-comment-template: ${{ inputs.container-pr-comment-template }}
           push-enabled: ${{ inputs.container-push-enabled }}
           load-enabled: ${{ inputs.container-load-enabled }}
@@ -1006,10 +1071,10 @@ jobs:
           trivy-skip-dirs: ${{ inputs.container-trivy-skip-dirs }}
           trivy-skip-files: ${{ inputs.container-trivy-skip-files }}
           upload-sarif: ${{ inputs.container-upload-sarif }}
-          sarif-category-source: ${{ inputs.container-sarif-category-source }}
-          sarif-category-dockerfile: ${{ inputs.container-sarif-category-dockerfile }}
-          sarif-category-image: ${{ inputs.container-sarif-category-image }}
-          vulnerability-comment-enabled: ${{ inputs.container-vulnerability-comment-enabled }}
+          sarif-category-source: ${{ inputs.container-sarif-category-source }}${{ matrix.image.scan-suffix }}
+          sarif-category-dockerfile: ${{ inputs.container-sarif-category-dockerfile }}${{ matrix.image.scan-suffix }}
+          sarif-category-image: ${{ inputs.container-sarif-category-image }}${{ matrix.image.scan-suffix }}
+          vulnerability-comment-enabled: ${{ needs.context.outputs.multiple-images != 'true' && inputs.container-vulnerability-comment-enabled }}
           enable-image-comparison: ${{ inputs.container-enable-image-comparison }}
           comparison-baseline-image: ${{ inputs.container-comparison-baseline-image }}
           fail-on-vulnerability: ${{ inputs.container-fail-on-vulnerability }}
@@ -1023,6 +1088,19 @@ jobs:
           floating-tags: ${{ inputs.container-floating-tags }}
           planned-version-tag: ${{ needs.context.outputs.is-main == 'true' && needs.version-plan.outputs.planned-version-tag || '' }}
 
+      # Matrix outputs are last-writer-wins. A successful publishing batch must
+      # therefore contain only children that actually published an image.
+      - name: Require every image to publish
+        if: ${{ needs.context.outputs.multiple-images == 'true' && inputs.container-push-enabled }}
+        shell: bash
+        env:
+          ARTIFACT_PUBLISHED: ${{ steps.container.outputs.artifact-published }}
+        run: |
+          if [[ "$ARTIFACT_PUBLISHED" != "true" ]]; then
+            echo "::error::An image did not publish; the shared release cannot be finalized."
+            exit 1
+          fi
+
   artifact-summary:
     name: Summarize artifact publishing
     if: ${{ always() }}
@@ -1030,6 +1108,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      container-artifact-published: ${{ needs.container.result == 'success' && needs.container.outputs.artifact-published || 'false' }}
     steps:
       - name: Report artifact outcomes
         shell: bash
@@ -1039,7 +1119,7 @@ jobs:
           PACKAGE_PUBLISHED: ${{ needs.package.outputs.artifact-published || 'false' }}
           CONTAINER_ENABLED: ${{ inputs.enable-container }}
           CONTAINER_RESULT: ${{ needs.container.result }}
-          CONTAINER_PUBLISHED: ${{ needs.container.outputs.artifact-published || 'false' }}
+          CONTAINER_PUBLISHED: ${{ needs.container.result == 'success' && needs.container.outputs.artifact-published || 'false' }}
           PLAN_RESULT: ${{ needs.version-plan.result }}
         run: |
           {
@@ -1154,7 +1234,7 @@ jobs:
 
   release:
     name: Release publish (last)
-    if: ${{ always() && inputs.release-create && !inputs.release-tag-only && needs.context.outputs.allow-release-finalize == 'true' && needs.source-finalize.result == 'success' && (!inputs.enable-package || needs.package.outputs.artifact-published == 'true') && (!inputs.enable-container || needs.container.outputs.artifact-published == 'true') && (inputs.enable-package || inputs.enable-container) }}
+    if: ${{ always() && inputs.release-create && !inputs.release-tag-only && needs.context.outputs.allow-release-finalize == 'true' && needs.source-finalize.result == 'success' && (!inputs.enable-package || needs.package.outputs.artifact-published == 'true') && (!inputs.enable-container || (needs.container.result == 'success' && needs.container.outputs.artifact-published == 'true')) && (inputs.enable-package || inputs.enable-container) }}
     runs-on: ubuntu-latest
     needs: [context, version-plan, source-finalize, package, container, artifact-summary]
     permissions:
