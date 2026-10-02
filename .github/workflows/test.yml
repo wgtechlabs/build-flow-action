@@ -1,0 +1,83 @@
+name: Workflow tests
+
+on:
+  pull_request:
+    branches: [dev, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - run: python3 tests/container-images.py
+      - run: ./tests/workflow-contract.ps1
+        shell: pwsh
+
+  builds:
+    name: No-push build (${{ matrix.mode }})
+    needs: contracts
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [single, multiple]
+    permissions:
+      contents: write
+      packages: write
+      pull-requests: write
+      security-events: write
+      actions: read
+    uses: ./.github/workflows/app.yml
+    with:
+      enable-container: true
+      enable-release: false
+      release-dry-run: true
+      enable-gitleaks: false
+      enable-codeql: false
+      ci-profile: custom
+      ci-test-command: python3 tests/container-images.py
+      container-registry: ghcr
+      container-push-enabled: false
+      container-dockerfile: tests/fixtures/Dockerfile
+      container-image-name: workflow-test-single
+      container-images: ${{ matrix.mode == 'multiple' && '[{"image-name":"workflow-test-app","build-args":"SERVICE=app"},{"image-name":"workflow-test-browser","build-args":"SERVICE=browser"}]' || '' }}
+      container-pre-build-scan-enabled: false
+      container-image-scan-enabled: false
+      container-upload-sarif: false
+      container-pr-comment-enabled: false
+      container-vulnerability-comment-enabled: false
+
+  wrapper:
+    name: Container-only entry point
+    needs: builds
+    permissions:
+      contents: write
+      packages: write
+      pull-requests: write
+      security-events: write
+      actions: read
+    uses: ./.github/workflows/container.yml
+    with:
+      enable-release: false
+      enable-gitleaks: false
+      enable-codeql: false
+      ci-profile: custom
+      ci-test-command: python3 tests/container-images.py
+      publish-pr-artifacts: false
+      publish-manual-artifacts: false
+      container-images: '[{"image-name":"app"},{"image-name":"browser"}]'
+
+  outputs:
+    needs: [builds, wrapper]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify validation-only runs do not report publication
+        env:
+          APP_PUBLISHED: ${{ needs.builds.outputs.container-artifact-published }}
+          WRAPPER_PUBLISHED: ${{ needs.wrapper.outputs.artifact-published }}
+        run: |
+          test "$APP_PUBLISHED" = false
+          test "$WRAPPER_PUBLISHED" = false

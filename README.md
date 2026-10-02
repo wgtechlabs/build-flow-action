@@ -76,6 +76,24 @@ jobs:
       ci-profile: auto
 ```
 
+### Multiple Images, One Release
+
+Set `container-images` to build distinct images with the same planned version and finalized source commit. Build Flow publishes one GitHub release only after every configured image publishes successfully. This does not require monorepo mode.
+
+```yaml
+with:
+  enable-container: true
+  container-registry: ghcr
+  container-release-platforms: linux/amd64
+  container-images: |
+    [
+      {"image-name": "my-app", "build-args": "SERVICE=app"},
+      {"image-name": "my-browser", "build-args": "SERVICE=browser"}
+    ]
+```
+
+Both images use the shared Dockerfile and build context; the Dockerfile must use the `SERVICE` build argument to select its app or browser stage. See the complete [multi-image example](examples/multi-image.yml) and [image definition schema](#image-definitions).
+
 ## Supported Ecosystems
 
 | Ecosystem | Profile | Auto-Detected From | Default Commands |
@@ -99,9 +117,10 @@ When you call `app.yml`, Build Flow runs this dependency graph:
 1. Context Detection     → determines branch, event, and policy
 2. CI Gate               → install, lint, typecheck, test, build + Gitleaks (matrix support)
 3. Version Plan (main)   → release primitive dry run produces immutable version metadata
-  ├── 4a. Package Publishing  → consumes the planned version
-  ├── 4b. Container Publishing → consumes the planned tag
-   └── 5. Release Finalization  → creates GitHub Release LAST after an artifact publishes
+4. Source Finalization  → updates version files and creates the release tag
+  ├── 5a. Package Publishing   → consumes the planned version and finalized source
+  ├── 5b. Container Publishing → all images consume the planned tag and finalized source
+   └── 6. Release Publication  → creates GitHub Release LAST after every enabled artifact publishes
    CodeQL (parallel)     → independent security scan (does not gate publishing or release)
 ```
 
@@ -109,7 +128,7 @@ Default behavior (zero-config): CI + security on main. Enable a package or conta
 
 Key behaviors:
 - **Immutable main releases** — a dry-run release plan supplies one version to every planned artifact and finalization
-- **Release is always last** — no public release until at least one enabled artifact reports publication
+- **Release is always last** — no public release until every enabled artifact reports publication
 - **Smart check visibility** — only relevant checks appear on your PRs (no skipped noise)
 - **Matrix validation** — test across multiple runtime versions automatically
 - **Ecosystem caching** — dependency caching for npm, pip, Go modules
@@ -123,6 +142,8 @@ Key behaviors:
 | `package.yml` | CI + package publishing + release |
 | `container.yml` | CI + container publishing + release |
 | `codeql.yml` | Standalone CodeQL security scanning (called internally) |
+
+`container.yml` delegates to `app.yml` with container publishing enabled. Its existing inputs and `artifact-published` output remain available; it also accepts `container-images` and shared Dockerfile, context, build argument, platform, and push settings. Use `app.yml` for the full primitive configuration, including custom container security options.
 
 **Usage pattern** — these are [reusable workflows](https://docs.github.com/en/actions/sharing-automations/reusing-workflows). Reference them with:
 
@@ -240,6 +261,7 @@ Source of truth: `.github/workflows/app.yml` (`on.workflow_call.inputs`).
 | Input | Default | Description |
 |-------|---------|-------------|
 | `container-registry` | `both` | Container registry target (docker-hub, ghcr, or both) |
+| `container-images` | `""` | Optional JSON array of image definitions; empty preserves the existing single-image inputs |
 | `container-image-name` | `""` | Optional image name override |
 | `container-tag-prefix` | `""` | Optional tag prefix |
 | `container-tag-suffix` | `""` | Optional tag suffix |
@@ -282,6 +304,27 @@ Source of truth: `.github/workflows/app.yml` (`on.workflow_call.inputs`).
 | `container-bot-detection` | `true` | Auto-detect bot actors and skip build |
 | `container-bot-detection-mode` | `smart` | Identity source for bot detection (smart, actor, or pr-author) |
 | `container-floating-tags` | `false` | Push a mutable floating tag for non-release builds |
+
+#### Image Definitions
+
+`container-images` accepts a JSON array of 1–256 objects. Unknown keys and non-string values are rejected before release planning.
+
+| Field | Required | Behavior |
+|-------|----------|----------|
+| `image-name` | Yes | Unique lowercase image name, without a registry or tag |
+| `dockerfile` | No | Inherits `container-dockerfile`; an explicit value must not be empty |
+| `context` | No | Inherits `container-context`; an explicit value must not be empty |
+| `build-args` | No | Inherits `container-build-args`; `""` clears shared arguments, `\n` separates arguments |
+| `platforms` | No | Inherits `container-platforms`; an explicit value must not be empty |
+| `release-platforms` | No | Inherits `container-release-platforms`; `""` uses this image's `platforms` |
+
+Registry, tag, security, and publishing settings are shared across images. Leaving `container-images` empty retains single-image behavior; a one-item array also retains the existing skip and comment behavior.
+
+With more than one image and pushing enabled, every image must report publication to at least one selected registry. A failed, cancelled, skipped, or unpublished image prevents the shared GitHub release. Bot detection or commit filtering that skips an image fails the requested publishing batch. Already-published images are not rolled back if another image fails.
+
+For builds without publication, set `container-push-enabled: false`; this disables the batch publication requirement and prevents the GitHub release. On main, also set `release-dry-run: true` to run the build without finalizing the source and tag.
+
+Multi-image builds disable the primitive's PR and vulnerability comments because concurrent images would update the same comment. Results remain in each job's logs and summary. SARIF categories receive per-image suffixes so scans remain separate. Single-image comments and categories are unchanged.
 
 ### Package inputs
 
