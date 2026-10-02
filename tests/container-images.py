@@ -32,9 +32,9 @@ def step_run(name):
     return textwrap.dedent("\n".join(lines))
 
 
-def resolve(raw):
+def resolve(raw, defaults=DEFAULTS):
     env = {**os.environ, "IMAGES": raw}
-    env.update({"DEFAULT_" + key.upper().replace("-", "_"): value for key, value in DEFAULTS.items()})
+    env.update({"DEFAULT_" + key.upper().replace("-", "_"): value for key, value in defaults.items()})
     with tempfile.TemporaryDirectory() as directory:
         output = Path(directory) / "output"
         env["GITHUB_OUTPUT"] = str(output)
@@ -83,6 +83,27 @@ class ContainerImages(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(len(json.loads(outputs["images"])), 256)
 
+    def test_resolved_output_size_limit(self):
+        raw = json.dumps([{"image-name": f"app-{index}"} for index in range(256)])
+        for args, valid in (("ARG=" + "x" * 1000, True), ("ARG=" + "x" * 4096, False),
+                            ("ARG=" + "\U0001f680" * 500, False)):
+            with self.subTest(valid=valid, argument_length=len(args)):
+                result, outputs = resolve(raw, {**DEFAULTS, "build-args": args})
+                if valid:
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertLessEqual(len(outputs["images"].encode("utf-16-le")), 900 * 1024)
+                else:
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("resolved images exceed 900 KiB", result.stderr)
+                    self.assertEqual(outputs, {})
+
+    def test_unqualified_names(self):
+        images = [{"image-name": name} for name in ("app.backend", "namespace/app", "org/team/app", "localhost")]
+        result, outputs = resolve(json.dumps(images))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual([image["image-name"] for image in json.loads(outputs["images"])],
+                         [image["image-name"] for image in images])
+
     def test_invalid_definitions_fail_without_outputs(self):
         invalid = {
             "invalid JSON": "[",
@@ -99,7 +120,8 @@ class ContainerImages(unittest.TestCase):
         }
         for value in (None, 1, True, [], {}):
             invalid[f"nonstring value {value!r}"] = json.dumps([{"image-name": "app", "build-args": value}])
-        for name in ("", "App", " app", "app ", "app:latest", "app@sha256:123", "/app", "app/", "a//b"):
+        for name in ("", "App", " app", "app ", "app:latest", "app@sha256:123", "/app", "app/", "a//b",
+                     "ghcr.io/org/app", "docker.io/org/app", "registry.example/app", "localhost/app", "localhost:5000/app"):
             invalid[f"invalid name {name!r}"] = json.dumps([{"image-name": name}])
         for field in ("dockerfile", "context", "platforms"):
             for value in ("", " \n "):

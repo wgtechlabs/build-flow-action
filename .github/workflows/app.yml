@@ -715,7 +715,9 @@ jobs:
                   if raw:
                       name = image.get('image-name', '')
                       component = r'[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*'
-                      if not re.fullmatch(component + r'(?:/' + component + r')*', name):
+                      first, slash, _ = name.partition('/')
+                      has_registry = bool(slash) and ('.' in first or ':' in first or first == 'localhost')
+                      if has_registry or not re.fullmatch(component + r'(?:/' + component + r')*', name):
                           raise ValueError('each image needs a lowercase image-name without a tag or registry')
                       if name in names:
                           raise ValueError('image-name values must be unique')
@@ -723,14 +725,18 @@ jobs:
                   for key in ('dockerfile', 'context', 'platforms'):
                       if key in image and not image[key].strip():
                           raise ValueError(key + ' must not be empty')
+              multiple = len(images) > 1
+              images = [dict(defaults, **image, **{'scan-suffix': f'-image-{index}' if multiple else ''})
+                        for index, image in enumerate(images)]
+              payload = json.dumps(images, separators=(',', ':'))
+              # Reserve room for policy outputs within GitHub's 1 MB UTF-16 job limit.
+              if len(payload.encode('utf-16-le')) > 900 * 1024:
+                  raise ValueError('resolved images exceed 900 KiB; use fewer images or smaller shared defaults')
           except (ValueError, TypeError) as error:
               sys.exit('::error::Invalid container-images: ' + str(error))
 
-          multiple = len(images) > 1
-          images = [dict(defaults, **image, **{'scan-suffix': f'-image-{index}' if multiple else ''})
-                    for index, image in enumerate(images)]
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-              output.write('images=' + json.dumps(images, separators=(',', ':')) + '\n')
+              output.write('images=' + payload + '\n')
               output.write('multiple-images=' + str(multiple).lower() + '\n')
 
       - name: Calculate policy

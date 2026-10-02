@@ -309,9 +309,11 @@ Source of truth: `.github/workflows/app.yml` (`on.workflow_call.inputs`).
 
 `container-images` accepts a JSON array of 1–256 objects. Unknown keys and non-string values are rejected before release planning.
 
+The resolved JSON, including shared defaults copied into each image, is limited to 900 KiB measured as UTF-16. This leaves room for policy outputs within [GitHub's job output limit](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idoutputs). Oversized configurations fail before builds start; use fewer images or smaller shared defaults.
+
 | Field | Required | Behavior |
 |-------|----------|----------|
-| `image-name` | Yes | Unique lowercase image name, without a registry or tag |
+| `image-name` | Yes | Unique lowercase image name, without a registry or tag; `app.backend` and `namespace/app` are valid, but `ghcr.io/org/app` and `localhost/app` are rejected |
 | `dockerfile` | No | Inherits `container-dockerfile`; an explicit value must not be empty |
 | `context` | No | Inherits `container-context`; an explicit value must not be empty |
 | `build-args` | No | Inherits `container-build-args`; `""` clears shared arguments, `\n` separates arguments |
