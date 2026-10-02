@@ -1,0 +1,34 @@
+name: Build Flow
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+
+permissions:
+  contents: write
+  packages: write
+  pull-requests: write
+  security-events: write
+  actions: read
+
+jobs:
+  build-flow:
+    # Pin a release tag or commit SHA containing multi-image support in production.
+    uses: wgtechlabs/build-flow-action/.github/workflows/app.yml@main
+    secrets: inherit
+    with:
+      ci-profile: auto
+      enable-container: true
+      container-registry: ghcr
+      publish-dev-artifacts: false
+      publish-pr-artifacts: false
+      container-release-platforms: linux/amd64
+      # The shared Dockerfile uses ARG SERVICE to select its app or browser stage.
+      # Both images inherit ./Dockerfile and context ., and share one release tag.
+      container-images: |
+        [
+          {"image-name": "my-app", "build-args": "SERVICE=app"},
+          {"image-name": "my-browser", "build-args": "SERVICE=browser"}
+        ]

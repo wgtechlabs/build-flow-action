@@ -12,13 +12,19 @@ Thanks for contributing to Build Flow Action.
 
 ## Local Validation
 
-This repository is currently documentation-and-workflow scaffold oriented. As implementation evolves, validation commands will be expanded.
+Run the workflow contracts from the repository root:
+
+```sh
+pwsh -NoProfile -File tests/workflow-contract.ps1
+python3 tests/container-images.py
+```
 
 Current minimum checks before opening a PR:
 
 - Review workflow YAML for valid structure.
 - Validate docs/examples reflect the reusable-workflow-first model.
 - Ensure release remains the final orchestration step in workflow logic.
+- For multi-image changes, cover input validation and a partially published batch; one image's success must never allow a release when another image failed or did not publish.
 
 ## Pull Request Guidance
 
