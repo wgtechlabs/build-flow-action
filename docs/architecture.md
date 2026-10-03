@@ -17,7 +17,7 @@ It does **not** reimplement build, publish, or release logic. That logic lives i
 | Primitive | Role | Pinned version (SHA) | Upstream ref |
 |-----------|------|----------------------|--------------|
 | [`wgtechlabs/release-build-flow-action`](https://github.com/wgtechlabs/release-build-flow-action) | Version bump, changelog, tag, GitHub Release | `6df9cb42c24c296d902150d051a0b6be4422cccc` | v1.8.0 |
-| [`wgtechlabs/package-build-flow-action`](https://github.com/wgtechlabs/package-build-flow-action) | Publish packages (npm, GitHub Packages) | `9be4582316267a397955254e0f80cfe0b9454ab2` | v2.2.0 |
+| [`wgtechlabs/package-build-flow-action`](https://github.com/wgtechlabs/package-build-flow-action) | Publish packages (npm, GitHub Packages) | `fac4cc6f61889fbc33849df87f20aa81a2a41bf2` | v2.3.0 |
 | [`wgtechlabs/container-build-flow-action`](https://github.com/wgtechlabs/container-build-flow-action) | Build and publish containers (Docker Hub, GHCR) | `fb5c0662b33f7702bc1ccf85350689436989f606` | v1.9.0 |
 
 All three are pinned by exact commit SHA (with a trailing release-version comment) in the reusable workflows. Bumping a primitive means updating the SHA **and** re-running the parity audit described below.
@@ -42,9 +42,9 @@ This eliminates both production failure modes: publishing a release before its a
 
 Main release candidates are serialized per repository and configured main branch, so two runs cannot publish artifacts for the same planned version.
 
-### Principle 2 — Never override primitive defaults
+### Principle 2 — Preserve primitive defaults unless a migration is explicit
 
-Each primitive's author deliberately chose its defaults and must-have behavior. **This orchestration must preserve those defaults, never silently suppress or re-assert them.** There are exactly two legitimate ways to honor a default, and the distinction between them matters:
+Each primitive's author deliberately chose its defaults and must-have behavior. **This orchestration must preserve those defaults, never silently suppress or re-assert them.** There are two normal ways to honor a default, and the distinction between them matters:
 
 1. **Silent default — input not exposed.** The orchestration forwards no value for the input at all; the primitive's own default governs invisibly. Reserve this for inputs a consumer should never need to touch (internal implementation details that aren't part of the orchestration's configurable surface). Forwarding a value here that merely repeats the default would still be a form of pinning: if the primitive later changes its default, the orchestration would silently freeze the old one.
 2. **Passthrough default — input exposed with a matching default.** The orchestration exposes the input as its own `workflow_call` input, and that input's default exactly matches the primitive's default. A consumer who never sets it gets identical behavior to calling the primitive directly; a consumer who wants different behavior now has a reachable toggle. This is the standard for anything on the orchestration's configurable surface — for example, `app.yml` exposes all 37 `release-build-flow-action` inputs this way.
@@ -52,7 +52,9 @@ Each primitive's author deliberately chose its defaults and must-have behavior. 
 Concretely:
 
 - Choose pattern 2 (expose + matching default) for any input a consumer is expected to want to set; use pattern 1 (silent default) only for the rest.
-- A value-level divergence from a primitive default is a bug under either pattern. Historically these crept in one at a time and had to be patched repeatedly; this document and the parity reference exist to stop that.
+- An undocumented value-level divergence is a bug under either pattern. Historically these crept in one at a time and had to be patched repeatedly; this document and the parity reference exist to stop that.
+
+**Explicit authentication migration:** Build Flow now defaults `package-npm-auth-method` to `oidc`, while Package Build Flow v2.3.0 retains `token`. This is an announced breaking default change, with caller trust/permission setup and an explicit `token` alternative documented in the [migration guide](../README.md#migrate-existing-workflows). It is the only input-default exception; do not infer permission to override other primitive defaults.
 
 Example (pattern 2 — passthrough): `release-build-flow-action` defaults `sync-version-files` to `true` (it syncs the resolved version into `package.json`, `Cargo.toml`, etc.). The orchestration exposes this as `release-sync-version-files` with a default of `true`, matching the primitive default exactly — a consumer who never sets it gets identical behavior to calling the primitive directly, while one who wants it off now has a reachable toggle.
 
@@ -62,7 +64,7 @@ There are exactly **three** mechanisms through which the orchestration can break
 
 1. **Policy gate + event triggers.** The `context`/policy job decides whether a flow runs. A missing event trigger (for example `release: published`) or a too-strict gate can suppress a flow the primitive would otherwise run.
 2. **Job permissions.** Reusable-workflow job permissions are **capped by the caller**. A missing scope makes a primitive's default feature (PR comments, SARIF upload, registry publish, release commit) fail or silently no-op.
-3. **Forwarded input values.** Every value forwarded to a primitive must equal that primitive's default unless the consumer deliberately overrode it — whether that value is a silent default (not exposed) or a passthrough default (exposed, matching) per Principle 2.
+3. **Forwarded input values.** Every value forwarded to a primitive must equal that primitive's default unless the consumer deliberately overrode it or the documented authentication migration above applies — whether that value is a silent default (not exposed) or a passthrough default (exposed, matching) per Principle 2.
 
 ## Integration model
 
@@ -103,16 +105,20 @@ This is the canonical record of what each primitive requires so the orchestratio
 
 Because reusable-workflow permissions are bounded by the caller, **example/consumer caller workflows must declare these scopes too** — otherwise the primitive defaults are silently capped.
 
-| Primitive | contents | packages | pull-requests | security-events | actions |
-|-----------|----------|----------|---------------|-----------------|---------|
-| package   | write    | write    | write (PR comments default on) | – | – |
-| container | write    | write    | write (PR comments default on) | write (SARIF) | – |
-| release   | write    | –        | – | – | – |
-| codeql gate | read   | –        | – | write | read |
+| Primitive | contents | packages | pull-requests | security-events | actions | id-token |
+|-----------|----------|----------|---------------|-----------------|---------|----------|
+| package   | write    | write (GitHub Packages) | write (PR comments default on) | – | – | write (npm OIDC only) |
+| container | write    | write    | write (PR comments default on) | write (SARIF) | – | – |
+| release   | write    | –        | – | – | – | – |
+| codeql gate | read   | –        | – | write | read | – |
+
+The table lists required capabilities, not the complete effective grant. In `app.yml` and `package.yml`, only the package job inherits the caller's permissions. Every other job retains an explicit permission map. This permits OIDC callers to grant `id-token: write` while explicit token and GitHub-only callers can omit it. A static package permission map that omits `id-token` removes the caller's grant; requesting it unconditionally would impose it on every caller.
+
+Inheritance also passes any other caller-granted scope to package build scripts and the pinned package primitive, including security scopes needed elsewhere in a full app flow. This is a deliberate compatibility tradeoff: callers must use a minimal permission map, must not use `write-all`, and must treat their package build and publishing code as trusted within that grant. The scope never exceeds the caller's own authorization. See [GitHub's reusable-workflow permission rules](https://docs.github.com/en/actions/reference/workflows-and-actions/reusing-workflow-configurations#supported-keywords-for-jobs-that-call-a-reusable-workflow).
 
 ### Required secrets / checkout per primitive
 
-- **package** — `npm-token` (`secrets.NPM_TOKEN`) is mandatory when `registry` includes npm (default `both`); the primitive hard-fails without it. The primitive can check out its own repo internally when no manifest is present, but release orchestration must explicitly check out the finalized commit before running it.
+- **package** — `npm-token` (`secrets.NPM_TOKEN`) is required only when npm is selected and `package-npm-auth-method: token`. OIDC mode forwards no npm publishing token; configure the calling repository/workflow as an npm trusted publisher allowed to run `npm publish`, grant `id-token: write`, and use GitHub-hosted runners. Build Flow installs Node 24.21.0 and npm 11.21.0 for npm OIDC; Bun can still build and pack. GitHub Packages uses the separate built-in `GITHUB_TOKEN`. A new npm package needs a one-time maintainer bootstrap before trust can be configured. The primitive can check out its own repo internally when no manifest is present, but release orchestration must explicitly check out the finalized commit before running it.
 - **container** — `dockerhub-username` / `dockerhub-token` for Docker Hub (default registry `both`). The container job **must** check out the finalized commit and **must** run `docker/setup-qemu-action` before the primitive, because the primitive builds the caller workspace and the default `release-platforms` is multi-arch (`linux/amd64,linux/arm64`). Its built-in revision metadata uses the triggering `github.sha`, so the orchestration overrides `org.opencontainers.image.revision` with the finalized SHA.
 - **release** — requires `actions/checkout` with `fetch-depth: 0` before it runs. Its tag creation is not idempotent, so it runs once in tag-only mode to finalize source; the later GitHub Release publication must not invoke the primitive again.
 
@@ -124,7 +130,7 @@ Because reusable-workflow permissions are bounded by the caller, **example/consu
 
 ### Consumer-facing passthroughs
 
-As of the v0.2 surface expansion, the orchestration now exposes the full consumer-configurable input surface of all three primitives (`container-build-flow-action`, `package-build-flow-action`, and `release-build-flow-action`) through wrapper workflows using matching passthrough defaults.
+As of the v0.2 surface expansion, the orchestration now exposes the full consumer-configurable input surface of all three primitives (`container-build-flow-action`, `package-build-flow-action`, and `release-build-flow-action`) through wrapper workflows using matching passthrough defaults, except for the explicitly documented npm authentication migration.
 
 For the full, current input list and defaults, see the **Inputs Reference** in [`README.md`](../README.md).
 
@@ -141,7 +147,7 @@ These behaviors look like divergences but are deliberate. Do not "fix" them back
 
 - Publishing a GitHub Release before its artifacts exist.
 - Depending on the `release` event as the sole production-artifact trigger.
-- Forwarding a value that diverges from a primitive default (silent override).
+- Silently diverging from primitive defaults or adding undocumented exceptions beyond the npm authentication migration.
 - Capping primitive permissions by omitting required scopes from caller workflows.
 
 If a release is visible publicly, the required production artifacts must already have been built and published successfully.
