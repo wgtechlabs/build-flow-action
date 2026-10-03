@@ -35,7 +35,7 @@ A public release must be the **final** step, never the first. The orchestration 
 3. On a main release candidate, dry-run the release primitive once to create an immutable version plan.
 4. Commit the version/changelog changes and create the release tag from that finalized commit.
 5. Build and publish every enabled artifact from that exact commit SHA.
-6. Verify every enabled artifact primitive reported publication.
+6. Verify every enabled artifact job succeeded and reported complete publication, including every selected package registry.
 7. Only then publish the GitHub Release for the existing tag.
 
 This eliminates both production failure modes: publishing a release before its artifacts exist, and tagging a pre-bump artifact with the planned version. The orchestration never relies on the `release` event as the trigger that produces artifacts.
@@ -81,17 +81,17 @@ A thin wrapper action exists at the repo root, but reusable workflows are prefer
 Each flow runs the same staged model:
 
 1. **Detect context.** A policy job classifies the event — pull request, push to `dev`, push to `main`, manual dispatch, or release — and decides which flows are allowed to publish and whether the release may finalize.
-2. **Run gates.** The CI gate (lint/typecheck/test/build, profile-driven) plus Gitleaks; CodeQL runs as an independent scan.
+2. **Run gates.** The CI gate runs lint/typecheck/test/build (profile-driven) plus Gitleaks. CodeQL runs after CI and must succeed before source finalization or artifact publication. Disabled scans and scans with no detected languages may be skipped; failed or cancelled scans block publication.
 3. **Plan main releases.** A dry-run release primitive calculates immutable version, tag, bump type, and monorepo package metadata.
 4. **Finalize source.** The release primitive commits version/changelog updates, creates the tag, and exports the resulting commit SHA without publishing a GitHub Release.
 5. **Build and publish artifacts.** Main release candidates check out the finalized SHA and consume the immutable plan; dev, PR, manual, and human-published-release events keep their legacy artifact flow.
-6. **Publish release (last).** The release job runs only after every enabled artifact primitive reports publication. It publishes the existing tag without rerunning version, tag, package, or container creation.
+6. **Publish release (last).** The release job requires every enabled artifact job to succeed and report complete publication. Packages must publish to every selected registry; planned monorepo results must also cover the exact planned package names and versions. The primitive's aggregate publication flag alone is insufficient. The release job publishes the existing tag without rerunning version, tag, package, or container creation.
 
 ## Branch and event model
 
 - **Pull request** → run CI and preview checks; do not publish a production release.
 - **Push to `dev`** → run CI; optionally publish development artifacts; no production release.
-- **Push to `main`** → run CI and gates; calculate one dry-run version plan; publish planned artifacts only for a non-`none` bump; finalize source before building enabled artifacts, then publish the GitHub Release only after every enabled target reports publication.
+- **Push to `main`** → run CI and CodeQL gates; calculate one dry-run version plan; publish planned artifacts only for a non-`none` bump; finalize source before building enabled artifacts, then publish the GitHub Release only after every enabled artifact job succeeds and all selected package registries report publication.
 - **Release (`published`)** → allow artifact publishing for human-published releases. Bot-authored publication events are ignored so an orchestrated release cannot trigger a duplicate build.
 - **Manual dispatch / unknown events** → resolve to the primitives' own `wip` flow.
 

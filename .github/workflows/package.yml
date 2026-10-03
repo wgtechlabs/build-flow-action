@@ -462,14 +462,15 @@ jobs:
   package:
     name: Build and publish package
     runs-on: ubuntu-latest
-    if: ${{ always() && needs.context.outputs.allow-package-publish == 'true' && needs.ci-gate.result == 'success' && (needs.context.outputs.is-main != 'true' || inputs.release-dry-run || (needs.source-finalize.result == 'success' && needs.version-plan.outputs.planned-version-bump-type != 'none')) }}
-    needs: [context, ci-gate, version-plan, source-finalize]
+    if: ${{ !cancelled() && needs.context.outputs.allow-package-publish == 'true' && needs.ci-gate.result == 'success' && (needs.codeql.result == 'success' || (needs.codeql.result == 'skipped' && (!inputs.enable-codeql || needs.ci-gate.outputs.resolved-codeql-languages == ''))) && (needs.context.outputs.is-main != 'true' || inputs.release-dry-run || (needs.source-finalize.result == 'success' && needs.version-plan.outputs.planned-version-bump-type != 'none')) }}
+    needs: [context, ci-gate, version-plan, source-finalize, codeql]
     permissions:
       contents: write
       packages: write
       pull-requests: write
     outputs:
       artifact-published: ${{ steps.package.outputs.artifact-published || 'false' }}
+      all-selected-registries-published: ${{ steps.publication.outputs.all-selected-registries-published || 'false' }}
     steps:
       - name: Checkout finalized source
         uses: actions/checkout@v4
@@ -521,10 +522,72 @@ jobs:
           planned-npm-tag: ${{ needs.context.outputs.is-main == 'true' && needs.version-plan.outputs.planned-npm-tag || '' }}
           planned-package-versions: ${{ inputs.package-monorepo && inputs.release-monorepo && needs.version-plan.outputs.planned-packages-updated || '' }}
 
+      - name: Verify selected package registries
+        id: publication
+        if: ${{ steps.package.outputs.build-skipped != 'true' }}
+        shell: python
+        env:
+          REGISTRY: ${{ inputs.package-registry }}
+          MONOREPO: ${{ inputs.package-monorepo }}
+          NPM_PUBLISHED: ${{ steps.package.outputs.npm-published }}
+          GITHUB_PUBLISHED: ${{ steps.package.outputs.github-published }}
+          BUILD_RESULTS: ${{ steps.package.outputs.build-results }}
+          REQUIRE_PLAN: ${{ inputs.package-monorepo && inputs.release-monorepo && needs.context.outputs.is-main == 'true' }}
+          PLANNED_PACKAGES: ${{ needs.version-plan.outputs.planned-packages-updated }}
+        run: |
+          import json
+          import os
+          import sys
+
+          # Keep artifact-published's existing "any registry" meaning separate.
+          complete = False
+          try:
+              registries = {'npm': ['npm'], 'github': ['github'], 'both': ['npm', 'github']}[os.environ['REGISTRY']]
+              if os.environ['MONOREPO'] == 'true':
+                  results = json.loads(os.environ['BUILD_RESULTS'] or '[]')
+                  if not isinstance(results, list):
+                      raise ValueError('build-results must be an array')
+
+                  def identities(packages):
+                      identities = {}
+                      for package in packages:
+                          if not isinstance(package, dict) or any(
+                              not isinstance(package.get(key), str) or not package[key]
+                              for key in ('name', 'version')
+                          ):
+                              raise ValueError('each package must have a name and version')
+                          if package['name'] in identities:
+                              raise ValueError('duplicate package result or plan')
+                          identities[package['name']] = package['version']
+                      return identities
+
+                  actual = identities(results)
+                  if os.environ['REQUIRE_PLAN'] == 'true':
+                      planned = json.loads(os.environ['PLANNED_PACKAGES'])
+                      if not isinstance(planned, list) or not planned:
+                          raise ValueError('the monorepo release plan must be a nonempty array')
+                      if actual != identities(planned):
+                          raise ValueError('package results do not cover the exact planned names and versions')
+                  complete = bool(results) and all(
+                      package.get('result') == 'success' and
+                      all(package.get(registry + '-published') == 'true' for registry in registries)
+                      for package in results
+                  )
+              else:
+                  complete = all(os.environ[registry.upper() + '_PUBLISHED'] == 'true' for registry in registries)
+          except (KeyError, ValueError, TypeError) as error:
+              print('::error::Invalid package publication evidence: ' + str(error), file=sys.stderr)
+              sys.exit(1)
+
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('all-selected-registries-published=' + str(complete).lower() + '\n')
+          if not complete:
+              print('Not all selected package registries reported publication; GitHub Release remains blocked.')
+
   source-finalize:
     name: Finalize release source and tag
-    if: ${{ !inputs.release-dry-run && inputs.package-publish-enabled && needs.context.outputs.allow-release-finalize == 'true' && needs.ci-gate.result == 'success' && needs.version-plan.result == 'success' && needs.version-plan.outputs.planned-version-bump-type != 'none' }}
-    needs: [context, ci-gate, version-plan]
+    if: ${{ !cancelled() && !inputs.release-dry-run && inputs.package-publish-enabled && needs.context.outputs.allow-release-finalize == 'true' && needs.ci-gate.result == 'success' && (needs.codeql.result == 'success' || (needs.codeql.result == 'skipped' && (!inputs.enable-codeql || needs.ci-gate.outputs.resolved-codeql-languages == ''))) && needs.version-plan.result == 'success' && needs.version-plan.outputs.planned-version-bump-type != 'none' }}
+    needs: [context, ci-gate, version-plan, codeql]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -596,19 +659,20 @@ jobs:
           PLAN_RESULT: ${{ needs.version-plan.result }}
           PACKAGE_RESULT: ${{ needs.package.result }}
           PACKAGE_PUBLISHED: ${{ needs.package.outputs.artifact-published || 'false' }}
+          PACKAGE_COMPLETE: ${{ needs.package.result == 'success' && needs.package.outputs.all-selected-registries-published || 'false' }}
         run: |
           {
             echo "## Artifact publishing"
             echo "- Version plan: $PLAN_RESULT"
-            echo "- Package: result=$PACKAGE_RESULT, published=$PACKAGE_PUBLISHED"
-            if [[ "$PACKAGE_RESULT" != "success" || "$PACKAGE_PUBLISHED" != "true" ]]; then
-              echo "- Finalization skipped: the package target did not report publication."
+            echo "- Package: result=$PACKAGE_RESULT, published=$PACKAGE_PUBLISHED, all-selected-registries-published=$PACKAGE_COMPLETE"
+            if [[ "$PACKAGE_COMPLETE" != "true" ]]; then
+              echo "- GitHub Release skipped: package publication is incomplete."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
   release:
     name: Release publish (last)
-    if: ${{ always() && inputs.release-create && needs.context.outputs.allow-release-finalize == 'true' && needs.source-finalize.result == 'success' && needs.package.outputs.artifact-published == 'true' }}
+    if: ${{ !cancelled() && inputs.release-create && needs.context.outputs.allow-release-finalize == 'true' && needs.source-finalize.result == 'success' && needs.package.result == 'success' && needs.package.outputs.all-selected-registries-published == 'true' }}
     runs-on: ubuntu-latest
     needs: [context, version-plan, source-finalize, package, artifact-summary]
     permissions:
