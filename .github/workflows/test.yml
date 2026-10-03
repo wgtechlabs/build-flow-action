@@ -22,6 +22,8 @@ jobs:
     needs: contracts
     strategy:
       fail-fast: false
+      # Reusable calls share one concurrency group; avoid replacing a pending call.
+      max-parallel: 1
       matrix:
         mode: [disabled, single, multiple]
     permissions:
@@ -110,7 +112,8 @@ jobs:
               throw "Unexpected container job count for $($scenario.Prefix)"
             }
             foreach ($job in $containers) {
-              if ($job.name -ne "$($scenario.Prefix) / Container flow" -or $job.conclusion -ne $scenario.Conclusion) {
+              if ($job.name.Contains('$' + '{{') -or $job.conclusion -ne $scenario.Conclusion -or
+                  ($scenario.Conclusion -eq 'skipped' -and $job.name -ne "$($scenario.Prefix) / Container flow")) {
                 throw "Unexpected container check: $($job.name) ($($job.conclusion))"
               }
             }
