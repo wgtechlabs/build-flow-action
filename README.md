@@ -117,18 +117,20 @@ When you call `app.yml`, Build Flow runs this dependency graph:
 1. Context Detection     → determines branch, event, and policy
 2. CI Gate               → install, lint, typecheck, test, build + Gitleaks (matrix support)
 3. Version Plan (main)   → release primitive dry run produces immutable version metadata
-4. Source Finalization  → updates version files and creates the release tag
+4. Source Finalization  → waits for CI + CodeQL, updates versions, and creates the release tag
   ├── 5a. Package Publishing   → consumes the planned version and finalized source
   ├── 5b. Container Publishing → all images consume the planned tag and finalized source
    └── 6. Release Publication  → creates GitHub Release LAST after every enabled artifact publishes
-   CodeQL (parallel)     → independent security scan (does not gate publishing or release)
+   CodeQL (after CI)     → required before source finalization or artifact publication
 ```
 
 Default behavior (zero-config): CI + security on main. Enable a package or container flow to publish artifacts and finalize a release. When enabled (or when using `package.yml` / `container.yml` directly), artifact publishing defaults to allowed on main, dev, PR, manual, and published release events unless you set a `publish-*-artifacts` input to `false`.
 
+An enabled CodeQL scan must succeed before source finalization or any artifact publishing. A deliberately disabled scan, or one with no detected languages, may be skipped. Failed or cancelled scans block publication.
+
 Key behaviors:
 - **Immutable main releases** — a dry-run release plan supplies one version to every planned artifact and finalization
-- **Release is always last** — no public release until every enabled artifact reports publication
+- **Release is always last** — no public release until every enabled artifact job succeeds; packages must publish to every selected registry
 - **Smart check visibility** — only relevant checks appear on your PRs (no skipped noise)
 - **Matrix validation** — test across multiple runtime versions automatically
 - **Ecosystem caching** — dependency caching for npm, pip, Go modules
@@ -331,6 +333,8 @@ Multi-image builds disable the primitive's PR and vulnerability comments because
 Container checks use the static base name `Container flow` so disabled or policy-skipped jobs remain readable before matrix expansion. GitHub appends matrix details to executed checks. The `Run container primitive (<image-name>)` step identifies each image; image details also remain in the logs and summary.
 
 ### Package inputs
+
+Package GitHub Releases require a successful package job and publication to every registry selected by `package-registry`. For monorepos, every result must succeed in every selected registry; planned releases must also cover the exact planned package names and versions. The primitive's `artifact-published` output retains its meaning of publication to at least one registry. Partial publication blocks the GitHub Release but does not roll back packages already published.
 
 | Input | Default | Description |
 |-------|---------|-------------|
