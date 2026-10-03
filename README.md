@@ -498,7 +498,7 @@ Build Flow includes security scanning out of the box:
 - **Gitleaks** — detects secrets committed to your repository (enabled by default)
 - **CodeQL** — static analysis for vulnerabilities (enabled by default, language auto-detected)
 
-Both are enabled by default. Gitleaks runs as part of the CI gate and blocks releases if secrets are detected. CodeQL runs as an independent security scan alongside the CI gate.
+Both are enabled by default. Gitleaks runs as part of the CI gate and blocks releases if secrets are detected. CodeQL runs after the CI gate and must succeed before source finalization or artifact publication. A disabled scan or one with no detected languages may be skipped; a failed or cancelled scan blocks publication.
 
 ## Branch Strategy
 
@@ -508,7 +508,7 @@ Build Flow is designed for the [Clean Flow](https://github.com/wgtechlabs/clean-
 |-------|----------|
 | PR to `dev` or `main` | CI + security gates + artifact publishing (enabled by default) |
 | Push to `dev` | CI + artifact publishing (enabled by default) |
-| Push to `main` | CI + version plan + publish enabled artifacts + finalize release when one publishes |
+| Push to `main` | CI + CodeQL gates + version plan + finalize source + publish enabled artifacts + GitHub Release after every selected package registry and enabled artifact job succeeds |
 | Release published by a user | CI + artifact publishing (release mode in container primitive) |
 | Bot-authored release publication | Skipped to prevent a duplicate artifact build |
 | Manual dispatch | Configurable operational/recovery scenarios |
