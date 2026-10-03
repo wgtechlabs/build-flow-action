@@ -63,8 +63,8 @@ $contracts = @{
     'ref: ${{ needs.source-finalize.outputs.finalized-sha || github.sha }}',
     'needs.source-finalize.result == ''success''',
     'Release publish (last)',
-    'Finalization skipped: package did not publish.',
-    'Finalization skipped: container did not publish.'
+    'GitHub Release skipped: package publication is incomplete.',
+    'GitHub Release skipped: container publication is incomplete.'
   )
   'package.yml' = @(
     'wgtechlabs/release-build-flow-action@6df9cb42c24c296d902150d051a0b6be4422cccc # v1.8.0',
@@ -124,7 +124,7 @@ foreach ($flow in $contracts.Keys) {
     if ($content -notmatch [regex]::Escape('planned-package-versions: ${{ inputs.release-monorepo && needs.version-plan.outputs.planned-packages-updated || '''' }}')) {
       throw 'app.yml must pass monorepo package versions from the release plan'
     }
-    if ($content -notmatch [regex]::Escape("(!inputs.enable-package || needs.package.outputs.artifact-published == 'true')")) {
+    if ($content -notmatch [regex]::Escape("(!inputs.enable-package || (needs.package.result == 'success' && needs.package.outputs.all-selected-registries-published == 'true'))")) {
       throw 'app.yml must require every enabled package artifact to publish before the release'
     }
     if ($content -notmatch [regex]::Escape("(!inputs.enable-container || (needs.container.result == 'success' && needs.container.outputs.artifact-published == 'true'))")) {
