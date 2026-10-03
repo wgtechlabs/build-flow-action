@@ -161,6 +161,12 @@ class ContainerImages(unittest.TestCase):
         self.assertIn("container-artifact-published: ${{ needs.container.result == 'success' && needs.container.outputs.artifact-published || 'false' }}", WORKFLOW)
         self.assertIn("CONTAINER_PUBLISHED: ${{ needs.container.result == 'success' && needs.container.outputs.artifact-published || 'false' }}", WORKFLOW)
 
+    def test_container_name_does_not_need_matrix_expansion(self):
+        container = WORKFLOW.split("\n  container:\n", 1)[1].split("\n  artifact-summary:\n", 1)[0]
+        name = container.split("    name: ", 1)[1].splitlines()[0]
+        self.assertEqual(name, "Container flow")
+        self.assertIn("      - name: Run container primitive (${{ matrix.image.image-name }})", container)
+
 
 if __name__ == "__main__":
     unittest.main()
