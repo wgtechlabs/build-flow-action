@@ -75,8 +75,127 @@ jobs:
       container-push-enabled: false
       container-images: '[{"image-name":"app"},{"image-name":"browser"}]'
 
+  # Keep reusable calls serial: app.yml and package.yml share a concurrency group.
+  package-app-token:
+    name: Package app token
+    needs: wrapper
+    permissions:
+      contents: write
+      packages: write
+      pull-requests: write
+      security-events: write
+      actions: read
+    uses: ./.github/workflows/app.yml
+    secrets:
+      # Deliberately invalid fixture value; no real credentials are inherited.
+      NPM_TOKEN: workflow-test-not-a-valid-token
+    with:
+      enable-package: true
+      enable-release: false
+      release-dry-run: true
+      enable-gitleaks: false
+      enable-codeql: false
+      ci-profile: custom
+      ci-test-command: python3 tests/release-gates.py
+      package-npm-auth-method: token
+      package-registry: both
+      package-path: tests/fixtures/package/package.json
+      package-manager: bun
+      package-build-script: verify-token
+      package-publish-enabled: false
+      package-dry-run: true
+      package-audit-enabled: false
+      package-pr-comment-enabled: false
+
+  package-only-token:
+    name: Package-only token
+    needs: package-app-token
+    permissions:
+      contents: write
+      packages: write
+      pull-requests: write
+      security-events: write
+      actions: read
+    uses: ./.github/workflows/package.yml
+    secrets:
+      # Deliberately invalid fixture value; no real credentials are inherited.
+      NPM_TOKEN: workflow-test-not-a-valid-token
+    with:
+      enable-release: false
+      release-dry-run: true
+      enable-gitleaks: false
+      enable-codeql: false
+      ci-profile: custom
+      ci-test-command: python3 tests/release-gates.py
+      package-npm-auth-method: token
+      package-registry: both
+      package-path: tests/fixtures/package/package.json
+      package-manager: bun
+      package-build-script: verify-token
+      package-publish-enabled: false
+      package-dry-run: true
+      package-audit-enabled: false
+      package-pr-comment-enabled: false
+
+  package-app-oidc:
+    name: Package app OIDC
+    needs: package-only-token
+    permissions:
+      contents: write
+      packages: write
+      pull-requests: write
+      security-events: write
+      actions: read
+      id-token: write
+    uses: ./.github/workflows/app.yml
+    with:
+      enable-package: true
+      enable-release: false
+      release-dry-run: true
+      enable-gitleaks: false
+      enable-codeql: false
+      ci-profile: custom
+      ci-test-command: python3 tests/release-gates.py
+      package-npm-auth-method: oidc
+      package-registry: both
+      package-path: tests/fixtures/package/package.json
+      package-manager: bun
+      package-build-script: verify-oidc
+      package-publish-enabled: false
+      package-dry-run: true
+      package-audit-enabled: false
+      package-pr-comment-enabled: false
+
+  package-only-oidc:
+    name: Package-only OIDC
+    needs: package-app-oidc
+    permissions:
+      contents: write
+      packages: write
+      pull-requests: write
+      security-events: write
+      actions: read
+      id-token: write
+    uses: ./.github/workflows/package.yml
+    with:
+      enable-release: false
+      release-dry-run: true
+      enable-gitleaks: false
+      enable-codeql: false
+      ci-profile: custom
+      ci-test-command: python3 tests/release-gates.py
+      package-npm-auth-method: oidc
+      package-registry: both
+      package-path: tests/fixtures/package/package.json
+      package-manager: bun
+      package-build-script: verify-oidc
+      package-publish-enabled: false
+      package-dry-run: true
+      package-audit-enabled: false
+      package-pr-comment-enabled: false
+
   outputs:
-    needs: [builds, wrapper]
+    needs: [builds, wrapper, package-app-token, package-only-token, package-app-oidc, package-only-oidc]
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -85,11 +204,19 @@ jobs:
         env:
           APP_PUBLISHED: ${{ needs.builds.outputs.container-artifact-published }}
           WRAPPER_PUBLISHED: ${{ needs.wrapper.outputs.artifact-published }}
+          PACKAGE_APP_TOKEN: ${{ needs.package-app-token.outputs.package-artifact-published }}
+          PACKAGE_ONLY_TOKEN: ${{ needs.package-only-token.outputs.artifact-published }}
+          PACKAGE_APP_OIDC: ${{ needs.package-app-oidc.outputs.package-artifact-published }}
+          PACKAGE_ONLY_OIDC: ${{ needs.package-only-oidc.outputs.artifact-published }}
         run: |
           test "$APP_PUBLISHED" = false
           test "$WRAPPER_PUBLISHED" = false
+          test "$PACKAGE_APP_TOKEN" = false
+          test "$PACKAGE_ONLY_TOKEN" = false
+          test "$PACKAGE_APP_OIDC" = false
+          test "$PACKAGE_ONLY_OIDC" = false
 
-      - name: Verify container check names and image identity
+      - name: Verify package execution and container checks
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -102,6 +229,23 @@ jobs:
             throw 'Could not read workflow jobs'
           }
           $jobs = @(($response | ConvertFrom-Json) | ForEach-Object { $_.jobs })
+          foreach ($packageJobName in @(
+            'Package app token / Package flow',
+            'Package-only token / Build and publish package',
+            'Package app OIDC / Package flow',
+            'Package-only OIDC / Build and publish package'
+          )) {
+            $packageJobs = @($jobs | Where-Object { $_.name -eq $packageJobName })
+            if ($packageJobs.Count -ne 1 -or $packageJobs[0].conclusion -ne 'success') {
+              throw "Package permission fixture did not run successfully: $packageJobName"
+            }
+            $primitive = @($packageJobs[0].steps | Where-Object {
+              $_.name -eq 'Run package primitive' -and $_.conclusion -eq 'success'
+            })
+            if ($primitive.Count -ne 1) {
+              throw "Package primitive was skipped: $packageJobName"
+            }
+          }
           foreach ($scenario in @(
             @{ Prefix = 'No-push build (disabled)'; Conclusion = 'skipped'; Images = @() },
             @{ Prefix = 'Container-only entry point / container-flow'; Conclusion = 'skipped'; Images = @() },
