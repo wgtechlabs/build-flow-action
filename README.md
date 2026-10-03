@@ -49,7 +49,8 @@ For production repositories, pin reusable workflow references to a release tag o
 ```yaml
 permissions:
   contents: write          # release commits, tags, and changelog
-  packages: write          # npm / GitHub Packages / GHCR
+  packages: write          # GitHub Packages / GHCR
+  id-token: write          # npm trusted publishing
   pull-requests: write     # default PR comments from primitives
   security-events: write   # CodeQL + container SARIF upload
   actions: read            # CodeQL
@@ -61,9 +62,15 @@ jobs:
     with:
       ci-profile: auto
       enable-package: true        # opt-in: publish to npm/GitHub Packages
+      package-npm-auth-method: oidc
       enable-container: true      # opt-in: publish to Docker Hub/GHCR
       container-registry: docker-hub
+      publish-dev-artifacts: false
+      publish-pr-artifacts: false
+      publish-manual-artifacts: false
 ```
+
+Configure [npm trusted publishing](#npm-trusted-publishing) before the first publish. This example validates development changes and publishes artifacts only from eligible `main` pushes.
 
 ### CI-Only (no packaging or releases)
 
@@ -339,6 +346,7 @@ Package GitHub Releases require a successful package job and publication to ever
 | Input | Default | Description |
 |-------|---------|-------------|
 | `package-registry` | `both` | Package registry target (npm, github, or both) |
+| `package-npm-auth-method` | `oidc` | npm authentication: `oidc` for trusted publishing or `token` for an `NPM_TOKEN`; ignored for GitHub-only publication |
 | `package-dry-run` | `false` | Run package primitive in dry-run mode |
 | `package-npm-registry-url` | `https://registry.npmjs.org` | npm registry URL |
 | `package-github-registry-url` | `https://npm.pkg.github.com` | GitHub Packages registry URL |
@@ -364,6 +372,45 @@ Package GitHub Releases require a successful package job and publication to ever
 | `package-build-trigger-types` | `""` | Commit types that trigger package build |
 | `package-build-skip-types` | `""` | Commit types that skip package build |
 | `package-bot-detection` | `true` | Auto-detect bots and fall back to validation-only mode |
+
+### npm trusted publishing
+
+`app.yml` and `package.yml` support automatic npm releases through GitHub Actions OIDC. The package job uses [Package Build Flow v2.3.0](https://github.com/wgtechlabs/package-build-flow-action/releases/tag/v2.3.0), pinned to `fac4cc6f61889fbc33849df87f20aa81a2a41bf2`. Use a Build Flow release or immutable commit containing `package-npm-auth-method`; upgrading the primitive alone does not upgrade an older Build Flow pin.
+
+Before publishing:
+
+1. Ensure the npm package exists. A new package needs the [one-time first publication](#first-publication-for-a-new-package) below.
+2. In the package's npm settings, configure a GitHub Actions trusted publisher for the **calling repository and workflow filename**, such as `build.yml`. Use only the filename, not `.github/workflows/build.yml` or this repository's `app.yml`. Match the publishing job's environment if one is configured. Each package in a monorepo needs its own trust configuration.
+3. Explicitly allow **`npm publish`** for that trusted publisher. Stage-only permission requires a maintainer's approval for each version; it does not permit unattended direct releases.
+4. Grant `id-token: write` in the caller and select `package-npm-auth-method: oidc`. Keep `packages: write` when also publishing to GitHub Packages.
+
+The package job installs Node **24.21.0** and npm **11.21.0** when OIDC is selected for npm or both registries. These exceed npm's minimum requirements of Node 22.14.0 and npm 11.5.1. This publication runtime is separate from the CI compatibility matrix. Bun remains available for installation, tests, builds, and packing; the npm CLI supplies the OIDC publication transport. Use GitHub-hosted runners. [npm setup requirements](https://docs.npmjs.com/trusted-publishers/)
+
+The caller and reusable publishing job both need OIDC permission. The package job inherits this scope from the caller; other jobs keep their own explicit permissions. The package's `repository.url` must identify the calling GitHub repository. Configuring trust does not prove publication: verify the registry version and workflow results after the first run.
+
+OIDC publication does not need `NPM_TOKEN`. GitHub Packages uses the built-in `GITHUB_TOKEN` and is separate from GHCR container publication. Installing private dependencies may require separate read credentials; npm publishing trust does not authorize installation. This input does not configure dependency credentials. Keep any required read credentials separate from publishing authentication.
+
+#### Migrate existing workflows
+
+When upgrading to a Build Flow revision that supports this input, set `package-npm-auth-method` explicitly in the same change. Older revisions reject the new input:
+
+- **OIDC:** configure trust, add the caller permission, and set `package-npm-auth-method: oidc`. No npm publishing secret is required. Remove obsolete publishing credentials only after verifying the new path and checking whether other workflows still use them.
+- **Token:** set `package-npm-auth-method: token` and provide `NPM_TOKEN` through repository/organization secrets or an explicit reusable-workflow secret mapping. npm still supports granular tokens subject to their permissions and package policy. A stage-only token cannot authorize this action's direct publish command.
+
+For automatic production releases, set `publish-dev-artifacts`, `publish-pr-artifacts`, and `publish-manual-artifacts` to `false`, as in the examples. CI and security checks still validate those events. OIDC changes authentication; it does not change the requirement for every selected registry and the complete package job to succeed before the GitHub Release.
+
+#### First publication for a new package
+
+npm requires an existing package before [configuring its trusted publisher](https://docs.npmjs.com/cli/v11/commands/npm-trust/). Build and review the initial tarball, then have a maintainer publish it once using interactive npm login and 2FA:
+
+```sh
+npm login --registry=https://registry.npmjs.org
+npm publish ./path/to/reviewed-package.tgz --access public --registry=https://registry.npmjs.org
+```
+
+Verify the published version, configure trust, and use OIDC for subsequent versions. Do not retry the already published version. If a version was published to only one selected registry, recover the missing registry separately before creating its GitHub Release; publication is not atomic.
+
+A staged first publication followed by maintainer approval is also possible. Build Flow uses direct publication and does not implement staging or approval polling. Keep account 2FA enabled; npm's setting to disallow traditional publishing tokens is compatible with a trusted publisher allowed to run `npm publish`.
 
 ### Release inputs
 
@@ -415,11 +462,13 @@ When using `secrets: inherit`, Build Flow automatically picks up the following s
 | `DOCKER_HUB_USERNAME` | `enable-container: true` + `container-registry: docker-hub` or `both` | Docker Hub login username |
 | `DOCKER_HUB_ACCESS_TOKEN` | `enable-container: true` + `container-registry: docker-hub` or `both` | Docker Hub access token |
 | `GITLEAKS_LICENSE` | `enable-gitleaks: true` (default) | Gitleaks license key |
-| `NPM_TOKEN` | `enable-package: true` + `package-registry: npm` or `both` | npm publish token |
+| `NPM_TOKEN` | Package publishing to npm or both registries with `package-npm-auth-method: token` | npm granular token with direct publishing permission; not required for OIDC |
 | `CODECOV_TOKEN` | Coverage reporting enabled | Codecov upload token |
 | `GHCR_TOKEN` | Optional override when `enable-container: true` + `container-registry: ghcr` or `both` | GHCR token override — uses built-in `GITHUB_TOKEN` when not set |
 
 GHCR (GitHub Container Registry) authentication uses the built-in `GITHUB_TOKEN` automatically — no extra secret is needed unless you set `GHCR_TOKEN` to override it.
+
+GitHub Packages also uses the built-in `GITHUB_TOKEN`. `GHCR_TOKEN` is a container credential override, not an npm or GitHub Packages credential.
 
 ## Full Primitive Configuration
 
@@ -437,6 +486,7 @@ on:
 permissions:
   contents: write
   packages: write
+  id-token: write
   pull-requests: write
   security-events: write
   actions: read
@@ -451,8 +501,12 @@ jobs:
       enable-release: true
 
       package-registry: both
+      package-npm-auth-method: oidc
       package-monorepo: true
       package-paths: "packages/core/package.json,packages/cli/package.json"
+      publish-dev-artifacts: false
+      publish-pr-artifacts: false
+      publish-manual-artifacts: false
 
       container-registry: both
       container-dockerfile: ./ops/docker/Dockerfile
@@ -469,17 +523,18 @@ jobs:
 
 ## Required Permissions
 
-Build Flow's reusable workflows request the permissions their primitives need, but **a called workflow can never exceed the permissions of the caller**. If your caller workflow grants fewer scopes, the primitives' default features (PR comments, SARIF upload, npm/registry publish, release commits) are silently capped and fail. Declare the scopes you need in the caller:
+Build Flow's reusable workflows request the permissions their primitives need, but **a called workflow can never exceed the permissions of the caller**. Missing caller permissions can prevent the called workflow from starting or cause an operation to fail. Declare the scopes needed by your enabled features:
 
 | Permission | Required for |
 |------------|--------------|
 | `contents: write` | Release commits, tags, changelog (release flow) |
-| `packages: write` | npm, GitHub Packages, and GHCR publishing |
+| `packages: write` | GitHub Packages and GHCR publishing; does not authorize npm |
+| `id-token: write` | npm trusted publishing when `package-npm-auth-method: oidc` and npm is selected |
 | `pull-requests: write` | Default PR comments from the package/container primitives |
 | `security-events: write` | CodeQL results and container Trivy SARIF upload |
 | `actions: read` | CodeQL |
 
-A CI-only caller (no publishing, no release) needs only the defaults. For a full app flow, use the block shown in [With Package and Container Publishing](#with-package-and-container-publishing).
+A CI-only or container-only caller does not need OIDC permission for this feature. For a full app flow, use the block shown in [With Package and Container Publishing](#with-package-and-container-publishing).
 
 ## Ecosystem Relationship
 
@@ -520,7 +575,7 @@ See the [`examples/`](examples/) directory for complete workflow files:
 - [`examples/app.yml`](examples/app.yml) — full orchestration (Node/Bun project)
 - [`examples/minimal.yml`](examples/minimal.yml) — zero-config auto-detect
 - [`examples/ci-only.yml`](examples/ci-only.yml) — CI validation only
-- [`examples/package-only.yml`](examples/package-only.yml) — package flow (Python project)
+- [`examples/package-only.yml`](examples/package-only.yml) — package flow (Node.js project)
 - [`examples/container-only.yml`](examples/container-only.yml) — container flow (C/C++ project)
 
 ## Documentation

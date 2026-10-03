@@ -1,0 +1,9 @@
+{
+  "name": "@wgtechlabs/build-flow-auth-fixture",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "verify-token": "node verify-auth.mjs token",
+    "verify-oidc": "node verify-auth.mjs oidc"
+  }
+}
