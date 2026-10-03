@@ -328,6 +328,8 @@ For builds without publication, set `container-push-enabled: false`; this disabl
 
 Multi-image builds disable the primitive's PR and vulnerability comments because concurrent images would update the same comment. Results remain in each job's logs and summary. SARIF categories receive per-image suffixes so scans remain separate. Single-image comments and categories are unchanged.
 
+Container checks use the static base name `Container flow` so disabled or policy-skipped jobs remain readable before matrix expansion. GitHub appends matrix details to executed checks. The `Run container primitive (<image-name>)` step identifies each image; image details also remain in the logs and summary.
+
 ### Package inputs
 
 | Input | Default | Description |
