@@ -1007,7 +1007,7 @@ jobs:
           planned-package-versions: ${{ inputs.release-monorepo && needs.version-plan.outputs.planned-packages-updated || '' }}
 
   container:
-    name: Container flow${{ needs.context.outputs.multiple-images == 'true' && format(' ({0})', matrix.image.image-name) || '' }}
+    name: Container flow
     if: ${{ always() && inputs.enable-container && needs.context.outputs.allow-artifact-publish == 'true' && needs.ci-gate.result == 'success' && (needs.context.outputs.is-main != 'true' || inputs.release-dry-run || (needs.source-finalize.result == 'success' && needs.version-plan.outputs.planned-version-bump-type != 'none')) }}
     strategy:
       fail-fast: false
@@ -1032,7 +1032,7 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4.1.0
 
-      - name: Run container primitive
+      - name: Run container primitive (${{ matrix.image.image-name }})
         id: container
         uses: wgtechlabs/container-build-flow-action@fb5c0662b33f7702bc1ccf85350689436989f606 # v1.9.0
         with:

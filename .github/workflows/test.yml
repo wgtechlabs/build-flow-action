@@ -22,8 +22,10 @@ jobs:
     needs: contracts
     strategy:
       fail-fast: false
+      # Reusable calls share one concurrency group; avoid replacing a pending call.
+      max-parallel: 1
       matrix:
-        mode: [single, multiple]
+        mode: [disabled, single, multiple]
     permissions:
       contents: write
       packages: write
@@ -32,7 +34,7 @@ jobs:
       actions: read
     uses: ./.github/workflows/app.yml
     with:
-      enable-container: true
+      enable-container: ${{ matrix.mode != 'disabled' }}
       enable-release: false
       release-dry-run: true
       enable-gitleaks: false
@@ -75,6 +77,8 @@ jobs:
   outputs:
     needs: [builds, wrapper]
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
     steps:
       - name: Verify validation-only runs do not report publication
         env:
@@ -83,3 +87,42 @@ jobs:
         run: |
           test "$APP_PUBLISHED" = false
           test "$WRAPPER_PUBLISHED" = false
+
+      - name: Verify container check names and image identity
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          GH_RUN_ID: ${{ github.run_id }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $response = gh api "repos/$env:GH_REPO/actions/runs/$env:GH_RUN_ID/jobs" --paginate --slurp
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Could not read workflow jobs'
+          }
+          $jobs = @(($response | ConvertFrom-Json) | ForEach-Object { $_.jobs })
+          foreach ($scenario in @(
+            @{ Prefix = 'No-push build (disabled)'; Conclusion = 'skipped'; Images = @() },
+            @{ Prefix = 'Container-only entry point / container-flow'; Conclusion = 'skipped'; Images = @() },
+            @{ Prefix = 'No-push build (single)'; Conclusion = 'success'; Images = @('workflow-test-single') },
+            @{ Prefix = 'No-push build (multiple)'; Conclusion = 'success'; Images = @('workflow-test-app', 'workflow-test-browser') }
+          )) {
+            $containers = @($jobs | Where-Object { $_.name.StartsWith("$($scenario.Prefix) / Container flow") })
+            if ($containers.Count -ne [Math]::Max(1, $scenario.Images.Count)) {
+              throw "Unexpected container job count for $($scenario.Prefix)"
+            }
+            foreach ($job in $containers) {
+              if ($job.name.Contains('$' + '{{') -or $job.conclusion -ne $scenario.Conclusion -or
+                  ($scenario.Conclusion -eq 'skipped' -and $job.name -ne "$($scenario.Prefix) / Container flow")) {
+                throw "Unexpected container check: $($job.name) ($($job.conclusion))"
+              }
+            }
+            $actualSteps = @($containers.steps | Where-Object {
+              $_ -and $_.name.StartsWith('Run container primitive (') -and $_.conclusion -eq 'success'
+            } | ForEach-Object { $_.name } | Sort-Object)
+            $expectedSteps = @($scenario.Images | ForEach-Object { "Run container primitive ($_)" } | Sort-Object)
+            if (($actualSteps -join "`n") -cne ($expectedSteps -join "`n")) {
+              throw "Unexpected image build steps for $($scenario.Prefix): $actualSteps"
+            }
+            Write-Output "$($scenario.Prefix): $($containers.Count) readable $($scenario.Conclusion) check(s); images=$($scenario.Images -join ',')"
+          }
