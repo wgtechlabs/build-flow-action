@@ -58,7 +58,7 @@ $contracts = @{
   'app.yml' = @(
     'wgtechlabs/release-build-flow-action@6df9cb42c24c296d902150d051a0b6be4422cccc # v1.8.0',
     'wgtechlabs/container-build-flow-action@fb5c0662b33f7702bc1ccf85350689436989f606 # v1.9.0',
-    'wgtechlabs/package-build-flow-action@9be4582316267a397955254e0f80cfe0b9454ab2 # v2.2.0',
+    'wgtechlabs/package-build-flow-action@fac4cc6f61889fbc33849df87f20aa81a2a41bf2 # v2.3.0',
     'version-plan:', 'source-finalize:', 'finalized-sha:', 'planned-version-tag:', 'planned-version-bump-type:', 'artifact-published:',
     'ref: ${{ needs.source-finalize.outputs.finalized-sha || github.sha }}',
     'needs.source-finalize.result == ''success''',
@@ -68,7 +68,7 @@ $contracts = @{
   )
   'package.yml' = @(
     'wgtechlabs/release-build-flow-action@6df9cb42c24c296d902150d051a0b6be4422cccc # v1.8.0',
-    'wgtechlabs/package-build-flow-action@9be4582316267a397955254e0f80cfe0b9454ab2 # v2.2.0',
+    'wgtechlabs/package-build-flow-action@fac4cc6f61889fbc33849df87f20aa81a2a41bf2 # v2.3.0',
     'version-plan:', 'source-finalize:', 'finalized-sha:', 'planned-version:', 'planned-npm-tag:', 'artifact-published:',
     'ref: ${{ needs.source-finalize.outputs.finalized-sha || github.sha }}',
     'needs.source-finalize.result == ''success''',
@@ -79,6 +79,30 @@ $contracts = @{
 foreach ($flow in $contracts.Keys) {
   $path = Join-Path $root ".github/workflows/$flow"
   $content = Get-Content -Raw $path
+
+  # Only the package job inherits caller permissions, allowing token callers to
+  # omit id-token while OIDC callers explicitly grant it. Other jobs stay scoped.
+  if ($content -match '(?m)^permissions:') {
+    throw "$flow must preserve caller permission grants for its package job"
+  }
+  $jobSection = ($content -split '(?m)^jobs:\r?$', 2)[1]
+  foreach ($match in [regex]::Matches($jobSection, '(?ms)^  ([a-z][a-z-]+):\r?\n(.*?)(?=^  [a-z][a-z-]+:|\z)')) {
+    $jobName = $match.Groups[1].Value
+    $hasPermissions = $match.Groups[2].Value -match '(?m)^    permissions:'
+    if ($hasPermissions -eq ($jobName -eq 'package')) {
+      throw "$flow job $jobName has an unexpected permission inheritance policy"
+    }
+  }
+
+  foreach ($required in @(
+    'package-npm-auth-method:',
+    'npm-auth-method: ${{ inputs.package-npm-auth-method }}',
+    'npm-token: ${{ inputs.package-npm-auth-method == ''token'' && secrets.NPM_TOKEN || '''' }}'
+  )) {
+    if (-not $content.Contains($required)) {
+      throw "$flow must preserve the selected authentication contract: $required"
+    }
+  }
 
   foreach ($required in $contracts[$flow]) {
     if ($content -notmatch [regex]::Escape($required)) {

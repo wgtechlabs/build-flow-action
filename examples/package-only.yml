@@ -14,6 +14,7 @@ on:
 permissions:
   contents: write
   packages: write
+  id-token: write # npm trusted publishing; no NPM_TOKEN required
   pull-requests: write
   security-events: write
   actions: read
@@ -25,16 +26,20 @@ jobs:
     with:
       enable-gitleaks: true
       enable-codeql: true
-      ci-profile: python
-      ci-matrix-versions: '["3.11","3.12"]'
-      ci-install-command: pip install -r requirements.txt
-      ci-test-command: pytest -q
+      ci-profile: node
+      ci-runtime-version: '24.21.0'
+      ci-matrix-versions: '["22","24","26"]'
+      ci-install-command: npm ci
+      ci-test-command: npm test
       main-branch: main
       dev-branch: dev
-      # publish-dev-artifacts: true    # artifact publishing enabled by default
-      # publish-pr-artifacts: true      # set to false to restrict to main-only
-      # publish-manual-artifacts: true  # set to false to restrict to main-only
+      # Validate these events; publish artifacts only on eligible main pushes.
+      publish-dev-artifacts: false
+      publish-pr-artifacts: false
+      publish-manual-artifacts: false
       package-registry: both
+      # Configure npm trust for this caller's filename and allow npm publish.
+      package-npm-auth-method: oidc
       package-dry-run: false
       release-changelog-path: ./CHANGELOG.md
       release-draft: false

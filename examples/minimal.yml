@@ -10,7 +10,8 @@ on:
 # Zero-config: Build Flow auto-detects your ecosystem from lockfiles/manifests.
 # No inputs needed for most projects — just call app.yml and inherit secrets.
 # Permissions are still required: reusable-workflow job permissions are capped by
-# the caller, so the defaults (package publish, container publish, release) need these.
+# the caller. Package and container publishing remain opt-in; enabling npm OIDC
+# also requires id-token: write (see examples/package-only.yml).
 permissions:
   contents: write
   packages: write
