@@ -48,8 +48,8 @@ def job(workflow, name):
     return re.split(r"\n  [a-z][a-z-]*:\n", workflow.split(f"\n  {name}:\n", 1)[1], 1)[0]
 
 
-def publication_script(workflow):
-    step = workflow.split("      - name: Verify selected package registries\n", 1)[1]
+def step_script(workflow, name):
+    step = workflow.split(f"      - name: {name}\n", 1)[1]
     lines = []
     for line in step.split("        run: |\n", 1)[1].splitlines():
         if line and not line.startswith("          "):
@@ -69,7 +69,7 @@ def publication(workflow, **overrides):
     with tempfile.TemporaryDirectory() as directory:
         output = Path(directory) / "output"
         result = subprocess.run(
-            [sys.executable, "-c", publication_script(workflow)],
+            [sys.executable, "-c", step_script(workflow, "Verify selected package registries")],
             env={**env, "GITHUB_OUTPUT": str(output)}, capture_output=True, text=True,
         )
         values = dict(line.split("=", 1) for line in output.read_text().splitlines()) if output.exists() else {}
@@ -96,6 +96,34 @@ def package(name="@test/one", version="1.2.3", **overrides):
 
 
 class ReleaseGates(unittest.TestCase):
+    def test_authentication_method_is_validated_before_policy(self):
+        for name, workflow in WORKFLOWS.items():
+            context = job(workflow, "context")
+            self.assertLess(context.index("Validate npm authentication method"), context.index("Calculate policy"))
+            for method in ("oidc", "token", "", "OIDC", "invalid", "oidc\n", "oidc; echo invalid"):
+                with self.subTest(workflow=name, method=method):
+                    result = subprocess.run(
+                        ["bash", "-c", step_script(context, "Validate npm authentication method")],
+                        env={"PATH": os.environ["PATH"], "NPM_AUTH_METHOD": method},
+                        capture_output=True, text=True,
+                    )
+                    self.assertEqual(result.returncode == 0, method in ("oidc", "token"))
+                    if result.returncode:
+                        self.assertIn("package-npm-auth-method must be oidc or token", result.stdout)
+
+    def test_native_npm_runtime_is_only_configured_for_npm_oidc(self):
+        for name, workflow in WORKFLOWS.items():
+            package_job = job(workflow, "package")
+            for step_name in ("Setup Node for npm trusted publishing", "Setup npm for trusted publishing"):
+                step = package_job.split(f"      - name: {step_name}\n", 1)[1]
+                expression = re.search(r"^        if: \$\{\{ (.+) \}\}$", step, re.M)[1]
+                for method, registry in itertools.product(("oidc", "token"), ("npm", "github", "both")):
+                    with self.subTest(workflow=name, step=step_name, method=method, registry=registry):
+                        self.assertEqual(evaluate(expression, {
+                            "inputs.package-npm-auth-method": method,
+                            "inputs.package-registry": registry,
+                        }), method == "oidc" and registry in ("npm", "both"))
+
     def test_every_selected_registry_is_required(self):
         for name, workflow in WORKFLOWS.items():
             for registry, npm, github in itertools.product(

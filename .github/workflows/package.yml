@@ -123,6 +123,11 @@ on:
         required: false
         type: boolean
         default: false
+      package-npm-auth-method:
+        description: npm authentication (oidc for trusted publishing, token for an explicit NPM_TOKEN)
+        required: false
+        type: string
+        default: oidc
       package-npm-registry-url:
         description: NPM registry URL passed to package primitive
         required: false
@@ -288,6 +293,13 @@ on:
         required: false
         type: boolean
         default: false
+    secrets:
+      GITLEAKS_LICENSE:
+        description: Gitleaks license when the organization security gate is enabled
+        required: false
+      NPM_TOKEN:
+        description: npm publishing token used only with package-npm-auth-method token
+        required: false
     outputs:
       artifact-published:
         description: Whether the package primitive published to at least one registry
@@ -297,9 +309,9 @@ concurrency:
   group: build-flow-release-${{ github.repository }}-${{ inputs.main-branch }}-${{ github.ref }}
   cancel-in-progress: false
 
-permissions:
-  contents: read
-
+# The package job inherits caller permissions so OIDC callers can grant
+# id-token: write without requiring that scope for explicit token callers.
+# Every other job narrows its own permissions.
 jobs:
   context:
     name: Detect context and policy
@@ -311,6 +323,16 @@ jobs:
       allow-package-publish: ${{ steps.policy.outputs.allow-package-publish }}
       allow-release-finalize: ${{ steps.policy.outputs.allow-release-finalize }}
     steps:
+      - name: Validate npm authentication method
+        shell: bash
+        env:
+          NPM_AUTH_METHOD: ${{ inputs.package-npm-auth-method }}
+        run: |
+          case "$NPM_AUTH_METHOD" in
+            oidc|token) ;;
+            *) echo '::error::package-npm-auth-method must be oidc or token'; exit 1 ;;
+          esac
+
       - name: Calculate policy
         id: policy
         shell: bash
@@ -464,10 +486,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ !cancelled() && needs.context.outputs.allow-package-publish == 'true' && needs.ci-gate.result == 'success' && (needs.codeql.result == 'success' || (needs.codeql.result == 'skipped' && (!inputs.enable-codeql || needs.ci-gate.outputs.resolved-codeql-languages == ''))) && (needs.context.outputs.is-main != 'true' || inputs.release-dry-run || (needs.source-finalize.result == 'success' && needs.version-plan.outputs.planned-version-bump-type != 'none')) }}
     needs: [context, ci-gate, version-plan, source-finalize, codeql]
-    permissions:
-      contents: write
-      packages: write
-      pull-requests: write
+    # Inherit the caller grant; an explicit map would strip optional OIDC.
     outputs:
       artifact-published: ${{ steps.package.outputs.artifact-published || 'false' }}
       all-selected-registries-published: ${{ steps.publication.outputs.all-selected-registries-published || 'false' }}
@@ -478,21 +497,32 @@ jobs:
           fetch-depth: 0
           ref: ${{ needs.source-finalize.outputs.finalized-sha || github.sha }}
 
-      # The package primitive installs, builds, and publishes with the resolved
-      # package manager, and bun is never present on the runner. `auto` resolves
-      # to bun whenever the consumer ships a bun lockfile, so cover it too.
+      # Native npm performs OIDC uploads even when Bun builds the package.
+      - name: Setup Node for npm trusted publishing
+        if: ${{ inputs.package-npm-auth-method == 'oidc' && (inputs.package-registry == 'npm' || inputs.package-registry == 'both') }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.21.0'
+
+      - name: Setup npm for trusted publishing
+        if: ${{ inputs.package-npm-auth-method == 'oidc' && (inputs.package-registry == 'npm' || inputs.package-registry == 'both') }}
+        shell: bash
+        run: npm install --global npm@11.21.0 --ignore-scripts --registry=https://registry.npmjs.org
+
+      # Auto detection selects Bun when the consumer has a Bun lockfile.
       - name: Setup Bun
         if: ${{ inputs.package-manager == 'bun' || inputs.package-manager == 'auto' || inputs.package-manager == '' }}
         uses: oven-sh/setup-bun@v2
 
       - name: Run package primitive
         id: package
-        uses: wgtechlabs/package-build-flow-action@9be4582316267a397955254e0f80cfe0b9454ab2 # v2.2.0
+        uses: wgtechlabs/package-build-flow-action@fac4cc6f61889fbc33849df87f20aa81a2a41bf2 # v2.3.0
         with:
           registry: ${{ inputs.package-registry }}
           dry-run: ${{ inputs.package-dry-run }}
           main-branch: ${{ inputs.main-branch }}
           dev-branch: ${{ inputs.dev-branch }}
+          npm-auth-method: ${{ inputs.package-npm-auth-method }}
           npm-registry-url: ${{ inputs.package-npm-registry-url }}
           github-registry-url: ${{ inputs.package-github-registry-url }}
           package-scope: ${{ inputs.package-scope }}
@@ -517,7 +547,7 @@ jobs:
           build-trigger-types: ${{ inputs.package-build-trigger-types }}
           build-skip-types: ${{ inputs.package-build-skip-types }}
           bot-detection: ${{ inputs.package-bot-detection }}
-          npm-token: ${{ secrets.NPM_TOKEN }}
+          npm-token: ${{ inputs.package-npm-auth-method == 'token' && secrets.NPM_TOKEN || '' }}
           planned-version: ${{ needs.context.outputs.is-main == 'true' && needs.version-plan.outputs.planned-version || '' }}
           planned-npm-tag: ${{ needs.context.outputs.is-main == 'true' && needs.version-plan.outputs.planned-npm-tag || '' }}
           planned-package-versions: ${{ inputs.package-monorepo && inputs.release-monorepo && needs.version-plan.outputs.planned-packages-updated || '' }}
