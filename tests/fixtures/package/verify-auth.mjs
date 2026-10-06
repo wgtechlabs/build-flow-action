@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { verifyIdentityPermission } from './verify-identity.mjs';
 
 const method = process.argv[2];
 assert.ok(['token', 'oidc'].includes(method), 'Expected an authentication test mode');
@@ -7,10 +8,7 @@ assert.equal(process.env.NPM_AUTH_METHOD, method, 'Authentication mode must reac
 assert.equal(process.env.PUBLISH_ENABLED, 'false', 'Fixture publication must stay disabled');
 assert.equal(process.env.DRY_RUN, 'true', 'Fixture dry-run protection must stay enabled');
 
-// Check availability only. Never request an identity token or print its URL/value.
-for (const key of ['ACTIONS_ID_TOKEN_REQUEST_URL', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN']) {
-  assert.equal(Boolean(process.env[key]), method === 'oidc', `${key} permission availability`);
-}
+verifyIdentityPermission(method);
 
 if (method === 'oidc') {
   assert.equal(Boolean(process.env.NPM_TOKEN), false, 'OIDC must not receive an npm token');
