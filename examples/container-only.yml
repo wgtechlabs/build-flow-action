@@ -30,9 +30,7 @@ jobs:
       ci-test-command: ctest --test-dir build --output-on-failure
       main-branch: main
       dev-branch: dev
-      # publish-dev-artifacts: true    # artifact publishing enabled by default
-      # publish-pr-artifacts: true      # set to false to restrict to main-only
-      # publish-manual-artifacts: true  # set to false to restrict to main-only
+      # Dev, PR, and manual artifact publishing use the enabled defaults.
       container-registry: both
       container-image-name: ''
       container-tag-prefix: ''
