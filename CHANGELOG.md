@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [1.0.1] - 2026-10-23
+
+### Changed
+
+- fix nested reusable workflow paths
+
 ## [1.0.0] - 2026-10-06
 
 ### Changed
