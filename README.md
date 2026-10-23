@@ -1,104 +1,19 @@
 # Build Flow Action
 
-[![Build Flow Action - GitHub Repo Banner](https://ghrb.waren.build/banner?header=Build+Flow+Action+%F0%9F%9A%82&subheader=Reusable-workflow-first+CI%2C+package%2C+container%2C+and+release+orchestration&bg=013B84-016EEA&color=FFFFFF)](https://github.com/wgtechlabs/build-flow-action)
+[![Build Flow Action — reusable CI, security, package, container, and release workflows](https://ghrb.waren.build/banner?header=Build+Flow+Action+%F0%9F%9A%82&subheader=Reusable-workflow-first+CI%2C+package%2C+container%2C+and+release+orchestration&bg=013B84-016EEA&color=FFFFFF)](https://github.com/wgtechlabs/build-flow-action)
 <!-- Created with GitHub Repo Banner by Waren Gonzaga: https://ghrb.waren.build -->
 
 One workflow. Full CI, security, packaging, containers, and releases — safe by default.
 
-Build Flow Action is the orchestration layer by [WG Technology Labs](https://github.com/wgtechlabs) that coordinates your entire build and release lifecycle through a single reusable workflow call.
+[Build Flow Action](https://github.com/wgtechlabs/build-flow-action) is the orchestration layer by [WG Technology Labs](https://github.com/wgtechlabs) that coordinates your build and release lifecycle through one reusable workflow call.
 
-## Why Build Flow?
+## ✨ Features
 
-Without Build Flow, teams must manually wire separate workflows for CI, security scanning, package publishing, container builds, and releases. This leads to:
+Build Flow replaces manually wired workflows for CI, security scanning, package publishing, container builds, and releases. This avoids duplicated workflow boilerplate, inconsistent security gates, releases published before their artifacts, and GitHub Releases with missing production artifacts.
 
-- Unsafe release ordering (publishing a release before artifacts are built)
-- Duplicated workflow boilerplate across repositories
-- Inconsistent CI checks and security gates
-- Visible GitHub Releases with missing production artifacts
+Its core rule is **build and validate first, release last**.
 
-Build Flow eliminates these problems with one rule: **build and validate first, release last.**
-
-## Getting Started
-
-Add one workflow file to your repository. That's it.
-
-### Zero-Config (auto-detects your ecosystem)
-
-```yaml
-# .github/workflows/build-flow.yml
-name: Build Flow
-
-on:
-  pull_request:
-    branches: [dev, main]
-  push:
-    branches: [dev, main]
-
-jobs:
-  build-flow:
-    uses: wgtechlabs/build-flow-action/.github/workflows/app.yml@main
-    secrets: inherit
-```
-
-Build Flow auto-detects your project from lockfiles and manifests. Zero-config gives you CI validation and security scanning. Enable package or container publishing with `enable-package` or `enable-container` to build artifacts and finalize releases.
-
-For production repositories, pin reusable workflow references to a release tag or commit SHA instead of `@main`.
-
-### With Package and Container Publishing
-
-```yaml
-permissions:
-  contents: write          # release commits, tags, and changelog
-  packages: write          # GitHub Packages / GHCR
-  id-token: write          # npm trusted publishing
-  pull-requests: write     # default PR comments from primitives
-  security-events: write   # CodeQL + container SARIF upload
-  actions: read            # CodeQL
-
-jobs:
-  build-flow:
-    uses: wgtechlabs/build-flow-action/.github/workflows/app.yml@main
-    secrets: inherit
-    with:
-      ci-profile: auto
-      enable-package: true        # opt-in: publish to npm/GitHub Packages
-      package-npm-auth-method: oidc
-      enable-container: true      # opt-in: publish to Docker Hub/GHCR
-      container-registry: docker-hub
-```
-
-Configure [npm trusted publishing](#npm-trusted-publishing) before the first publish. This example keeps the publishing defaults: dev pushes, pull requests, and manual runs may publish artifacts when the caller enables those events. CI, security checks, and registry permissions still apply. Production GitHub Releases remain limited to eligible `main` pushes.
-
-### CI-Only (no packaging or releases)
-
-```yaml
-jobs:
-  ci:
-    uses: wgtechlabs/build-flow-action/.github/workflows/ci.yml@main
-    secrets: inherit
-    with:
-      ci-profile: auto
-```
-
-### Multiple Images, One Release
-
-Set `container-images` to build distinct images with the same planned version and finalized source commit. Build Flow publishes one GitHub release only after every configured image publishes successfully. This does not require monorepo mode.
-
-```yaml
-with:
-  enable-container: true
-  container-registry: ghcr
-  container-release-platforms: linux/amd64
-  container-images: |
-    [
-      {"image-name": "my-app", "build-args": "SERVICE=app"},
-      {"image-name": "my-browser", "build-args": "SERVICE=browser"}
-    ]
-```
-
-Both images use the shared Dockerfile and build context; the Dockerfile must use the `SERVICE` build argument to select its app or browser stage. See the complete [multi-image example](examples/multi-image.yml) and [image definition schema](#image-definitions).
-
-## Supported Ecosystems
+### Supported Ecosystems
 
 | Ecosystem | Profile | Auto-Detected From | Default Commands |
 |-----------|---------|-------------------|-----------------|
@@ -113,7 +28,7 @@ Both images use the shared Dockerfile and build context; the Dockerfile must use
 
 All profiles support overriding individual commands via `ci-*-command` inputs.
 
-## What You Get
+### Orchestration and security
 
 When you call `app.yml`, Build Flow runs this dependency graph:
 
@@ -139,7 +54,96 @@ Key behaviors:
 - **Matrix validation** — test across multiple runtime versions automatically
 - **Ecosystem caching** — dependency caching for npm, pip, Go modules
 
-## Available Workflows
+### Security
+
+Build Flow includes security scanning out of the box:
+
+- **Gitleaks** — detects secrets committed to your repository (enabled by default)
+- **CodeQL** — static analysis for vulnerabilities (enabled by default, language auto-detected)
+
+Both are enabled by default. Gitleaks runs as part of the CI gate and blocks releases if secrets are detected. CodeQL runs after the CI gate and must succeed before source finalization or artifact publication. A disabled scan or one with no detected languages may be skipped; a failed or cancelled scan blocks publication.
+
+## 🚀 Getting Started
+
+Add a workflow file to your repository. This zero-config example runs CI and security scanning, and auto-detects the ecosystem from your project files:
+
+```yaml
+# .github/workflows/build-flow.yml
+name: Build Flow
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+
+jobs:
+  build-flow:
+    uses: wgtechlabs/build-flow-action/.github/workflows/app.yml@v1.0.1
+    secrets: inherit
+```
+
+For stronger supply-chain integrity, pin the reusable workflow to a verified full commit SHA. Publishing examples and other workflow options are in the Usage section.
+
+## 📖 Usage
+
+Choose the reusable workflow that matches the level of orchestration you need.
+
+### With Package and Container Publishing
+
+```yaml
+permissions:
+  contents: write          # release commits, tags, and changelog
+  packages: write          # GitHub Packages / GHCR
+  id-token: write          # npm trusted publishing
+  pull-requests: write     # default PR comments from primitives
+  security-events: write   # CodeQL + container SARIF upload
+  actions: read            # CodeQL
+
+jobs:
+  build-flow:
+    uses: wgtechlabs/build-flow-action/.github/workflows/app.yml@v1.0.1
+    secrets: inherit
+    with:
+      ci-profile: auto
+      enable-package: true        # opt-in: publish to npm/GitHub Packages
+      package-npm-auth-method: oidc
+      enable-container: true      # opt-in: publish to Docker Hub/GHCR
+      container-registry: docker-hub
+```
+
+Configure [npm trusted publishing](#npm-trusted-publishing) before the first publish. This example keeps the publishing defaults: dev pushes, pull requests, and manual runs may publish artifacts when the caller enables those events. CI, security checks, and registry permissions still apply. Production GitHub Releases remain limited to eligible `main` pushes.
+
+### CI-Only (no packaging or releases)
+
+```yaml
+jobs:
+  ci:
+    uses: wgtechlabs/build-flow-action/.github/workflows/ci.yml@v1.0.1
+    secrets: inherit
+    with:
+      ci-profile: auto
+```
+
+### Multiple Images, One Release
+
+Set `container-images` to build distinct images with the same planned version and finalized source commit. Build Flow publishes one GitHub release only after every configured image publishes successfully. This does not require monorepo mode.
+
+```yaml
+with:
+  enable-container: true
+  container-registry: ghcr
+  container-release-platforms: linux/amd64
+  container-images: |
+    [
+      {"image-name": "my-app", "build-args": "SERVICE=app"},
+      {"image-name": "my-browser", "build-args": "SERVICE=browser"}
+    ]
+```
+
+Both images use the shared Dockerfile and build context; the Dockerfile must use the `SERVICE` build argument to select its app or browser stage. See the complete [multi-image example](examples/multi-image.yml) and [image definition schema](#image-definitions).
+
+### Available Workflows
 
 | Workflow | Use Case |
 |----------|----------|
@@ -154,7 +158,7 @@ Key behaviors:
 **Usage pattern** — these are [reusable workflows](https://docs.github.com/en/actions/sharing-automations/reusing-workflows). Reference them with:
 
 ```yaml
-uses: wgtechlabs/build-flow-action/.github/workflows/<workflow>@main
+uses: wgtechlabs/build-flow-action/.github/workflows/<workflow>@v1.0.1
 ```
 
 For production safety, prefer:
@@ -164,7 +168,11 @@ uses: wgtechlabs/build-flow-action/.github/workflows/<workflow>@v0
 # or pin to a full commit SHA
 ```
 
-## CI Profiles and Custom Commands
+## ⚙️ Configuration
+
+The reusable workflow inputs are documented in `.github/workflows/app.yml` under `on.workflow_call.inputs`.
+
+### CI Profiles and Custom Commands
 
 Profiles auto-detect from lockfiles (`auto`) or can be set explicitly. Each profile includes sensible defaults and dependency caching.
 
@@ -209,7 +217,7 @@ ci-lint-command: ./scripts/ci/lint.sh
 ci-test-command: ./scripts/ci/test.sh
 ```
 
-## Runner and Version Configuration
+### Runner and Version Configuration
 
 All CI jobs default to `ubuntu-latest`. Override with `ci-runs-on` for macOS, Windows, or self-hosted runners:
 
@@ -219,7 +227,7 @@ ci-runtime-version: '22'
 ci-matrix-versions: '["20","22"]'
 ```
 
-## Inputs Reference
+### Inputs Reference
 
 Source of truth: `.github/workflows/app.yml` (`on.workflow_call.inputs`).
 
@@ -450,7 +458,7 @@ A staged first publication followed by maintainer approval is also possible. Bui
 | `release-monorepo-root-release` | `true` | Create a unified root release in monorepo mode |
 | `release-package-manager` | `""` | Package manager for workspace detection |
 
-## Required Secrets
+### Required Secrets
 
 When using `secrets: inherit`, Build Flow automatically picks up the following secrets from your repository or organization:
 
@@ -467,7 +475,7 @@ GHCR (GitHub Container Registry) authentication uses the built-in `GITHUB_TOKEN`
 
 GitHub Packages also uses the built-in `GITHUB_TOKEN`. `GHCR_TOKEN` is a container credential override, not an npm or GitHub Packages credential.
 
-## Full Primitive Configuration
+### Full Primitive Configuration
 
 This example keeps Build Flow orchestration while tuning package, container, and release primitives directly through `app.yml` passthrough inputs.
 
@@ -490,7 +498,7 @@ permissions:
 
 jobs:
   build-flow:
-    uses: wgtechlabs/build-flow-action/.github/workflows/app.yml@main
+    uses: wgtechlabs/build-flow-action/.github/workflows/app.yml@v1.0.1
     secrets: inherit
     with:
       enable-package: true
@@ -515,7 +523,7 @@ jobs:
       release-sync-version-files: true
 ```
 
-## Required Permissions
+### Required Permissions
 
 Build Flow's reusable workflows request the permissions their primitives need, but **a called workflow can never exceed the permissions of the caller**. Missing caller permissions can prevent the called workflow from starting or cause an operation to fail. Declare the scopes needed by your enabled features:
 
@@ -532,7 +540,9 @@ A CI-only or container-only caller does not need OIDC permission for this featur
 
 Release commits, tags, and GitHub Releases use the built-in `GITHUB_TOKEN` with `contents: write`. No personal access token or custom release token secret is needed.
 
-## Ecosystem Relationship
+## 📚 Documentation
+
+### Ecosystem Relationship
 
 Build Flow orchestrates these WG Technology Labs primitives:
 
@@ -542,16 +552,24 @@ Build Flow orchestrates these WG Technology Labs primitives:
 
 You don't need to install these separately — Build Flow calls them internally with safe sequencing and policy gates, and now exposes their full configurable input surface through orchestration passthroughs.
 
-## Security
+### Examples
 
-Build Flow includes security scanning out of the box:
+See the [`examples/`](examples/) directory for complete workflow files:
 
-- **Gitleaks** — detects secrets committed to your repository (enabled by default)
-- **CodeQL** — static analysis for vulnerabilities (enabled by default, language auto-detected)
+- [`examples/app.yml`](examples/app.yml) — full orchestration (Node/Bun project)
+- [`examples/minimal.yml`](examples/minimal.yml) — zero-config auto-detect
+- [`examples/ci-only.yml`](examples/ci-only.yml) — CI validation only
+- [`examples/package-only.yml`](examples/package-only.yml) — package flow (Node.js project)
+- [`examples/container-only.yml`](examples/container-only.yml) — container flow (C/C++ project)
 
-Both are enabled by default. Gitleaks runs as part of the CI gate and blocks releases if secrets are detected. CodeQL runs after the CI gate and must succeed before source finalization or artifact publication. A disabled scan or one with no detected languages may be skipped; a failed or cancelled scan blocks publication.
+### Further Documentation
 
-## Branch Strategy
+- [`docs/architecture.md`](docs/architecture.md) — design philosophy and orchestration model
+- [`docs/roadmap.md`](docs/roadmap.md) — planned features and improvements
+
+## 🛠️ Development
+
+### Branch Strategy
 
 Build Flow is designed for the [Clean Flow](https://github.com/wgtechlabs/clean-flow) workflow:
 
@@ -564,21 +582,27 @@ Build Flow is designed for the [Clean Flow](https://github.com/wgtechlabs/clean-
 | Bot-authored release publication | Skipped to prevent a duplicate artifact build |
 | Manual dispatch | Configurable operational/recovery scenarios |
 
-## Examples
+### Local Validation
 
-See the [`examples/`](examples/) directory for complete workflow files:
+Run the repository's workflow contract and container image checks from the repository root:
 
-- [`examples/app.yml`](examples/app.yml) — full orchestration (Node/Bun project)
-- [`examples/minimal.yml`](examples/minimal.yml) — zero-config auto-detect
-- [`examples/ci-only.yml`](examples/ci-only.yml) — CI validation only
-- [`examples/package-only.yml`](examples/package-only.yml) — package flow (Node.js project)
-- [`examples/container-only.yml`](examples/container-only.yml) — container flow (C/C++ project)
+```sh
+pwsh -NoProfile -File tests/workflow-contract.ps1
+python3 tests/container-images.py
+```
 
-## Documentation
+## 🤝 Contributing
 
-- [`docs/architecture.md`](docs/architecture.md) — design philosophy and orchestration model
-- [`docs/roadmap.md`](docs/roadmap.md) — planned features and improvements
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution standards and validation. Keep pull requests focused, use the WG Technology Labs Clean Commit convention, and update documentation and examples when workflow behavior changes.
 
-## License
+## 🐛 Issues & Support
 
-MIT
+Report bugs or request help through [GitHub Issues](https://github.com/wgtechlabs/build-flow-action/issues).
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).
+
+## 👥 Authors & Contributors
+
+Created and maintained by [WG Technology Labs](https://github.com/wgtechlabs). See the [contributors graph](https://github.com/wgtechlabs/build-flow-action/graphs/contributors).
