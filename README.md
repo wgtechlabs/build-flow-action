@@ -40,7 +40,7 @@ jobs:
     secrets: inherit
 ```
 
-Build Flow auto-detects your project from lockfiles and manifests. Zero-config gives you CI validation, security scanning, and release finalization. Package and container flows in `app.yml` stay opt-in via `enable-package` and `enable-container`.
+Build Flow auto-detects your project from lockfiles and manifests. Zero-config gives you CI validation and security scanning. Enable package or container publishing with `enable-package` or `enable-container` to build artifacts and finalize releases.
 
 For production repositories, pin reusable workflow references to a release tag or commit SHA instead of `@main`.
 
@@ -65,12 +65,9 @@ jobs:
       package-npm-auth-method: oidc
       enable-container: true      # opt-in: publish to Docker Hub/GHCR
       container-registry: docker-hub
-      publish-dev-artifacts: false
-      publish-pr-artifacts: false
-      publish-manual-artifacts: false
 ```
 
-Configure [npm trusted publishing](#npm-trusted-publishing) before the first publish. This example validates development changes and publishes artifacts only from eligible `main` pushes.
+Configure [npm trusted publishing](#npm-trusted-publishing) before the first publish. This example keeps the publishing defaults: dev pushes, pull requests, and manual runs may publish artifacts when the caller enables those events. CI, security checks, and registry permissions still apply. Production GitHub Releases remain limited to eligible `main` pushes.
 
 ### CI-Only (no packaging or releases)
 
@@ -397,7 +394,7 @@ When upgrading to a Build Flow revision that supports this input, set `package-n
 - **OIDC:** configure trust, add the caller permission, and set `package-npm-auth-method: oidc`. No npm publishing secret is required. Remove obsolete publishing credentials only after verifying the new path and checking whether other workflows still use them.
 - **Token:** set `package-npm-auth-method: token` and provide `NPM_TOKEN` through repository/organization secrets or an explicit reusable-workflow secret mapping. npm still supports granular tokens subject to their permissions and package policy. A stage-only token cannot authorize this action's direct publish command.
 
-For automatic production releases, set `publish-dev-artifacts`, `publish-pr-artifacts`, and `publish-manual-artifacts` to `false`, as in the examples. CI and security checks still validate those events. OIDC changes authentication; it does not change the requirement for every selected registry and the complete package job to succeed before the GitHub Release.
+Keep `publish-dev-artifacts`, `publish-pr-artifacts`, and `publish-manual-artifacts` unset to preserve their `true` defaults. Set an input to `false` only when you want to disable publishing for that event. Automatic production releases do not require disabling development publishing. OIDC changes authentication; it does not change the requirement for every selected registry and the complete package job to succeed before the GitHub Release.
 
 #### First publication for a new package
 
@@ -504,9 +501,6 @@ jobs:
       package-npm-auth-method: oidc
       package-monorepo: true
       package-paths: "packages/core/package.json,packages/cli/package.json"
-      publish-dev-artifacts: false
-      publish-pr-artifacts: false
-      publish-manual-artifacts: false
 
       container-registry: both
       container-dockerfile: ./ops/docker/Dockerfile
@@ -535,6 +529,8 @@ Build Flow's reusable workflows request the permissions their primitives need, b
 | `actions: read` | CodeQL |
 
 A CI-only or container-only caller does not need OIDC permission for this feature. For a full app flow, use the block shown in [With Package and Container Publishing](#with-package-and-container-publishing).
+
+Release commits, tags, and GitHub Releases use the built-in `GITHUB_TOKEN` with `contents: write`. No personal access token or custom release token secret is needed.
 
 ## Ecosystem Relationship
 

@@ -22,8 +22,7 @@ jobs:
       ci-profile: auto
       enable-container: true
       container-registry: ghcr
-      publish-dev-artifacts: false
-      publish-pr-artifacts: false
+      # Dev and PR artifact publishing use the enabled defaults.
       container-release-platforms: linux/amd64
       # The shared Dockerfile uses ARG SERVICE to select its app or browser stage.
       # Both images inherit ./Dockerfile and context ., and share one release tag.
