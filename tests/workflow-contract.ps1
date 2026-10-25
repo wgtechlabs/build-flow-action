@@ -180,7 +180,7 @@ foreach ($flow in $contracts.Keys) {
 
 $wrapper = Get-Content -Raw (Join-Path $root '.github/workflows/container.yml')
 foreach ($required in @(
-  'uses: wgtechlabs/build-flow-action/.github/workflows/app.yml@9a4d32e4bc916c8fadb5953a978ae8f5c2242cb1',
+  'uses: $/.github/workflows/app.yml',
   'secrets: inherit',
   'enable-container: true',
   'value: ${{ jobs.container-flow.outputs.container-artifact-published }}',
