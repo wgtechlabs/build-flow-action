@@ -219,7 +219,7 @@ jobs:
       pull-requests: write
       security-events: write
       actions: read
-    uses: $/.github/workflows/app.yml
+    uses: wgtechlabs/build-flow-action/.github/workflows/app.yml@9a4d32e4bc916c8fadb5953a978ae8f5c2242cb1
     secrets: inherit
     with:
       enable-container: true

@@ -111,8 +111,8 @@ foreach ($flow in $contracts.Keys) {
   }
 
   foreach ($required in @(
-    'uses: $/.github/workflows/ci.yml',
-    'uses: $/.github/workflows/codeql.yml',
+    'uses: wgtechlabs/build-flow-action/.github/workflows/ci.yml@9a4d32e4bc916c8fadb5953a978ae8f5c2242cb1',
+    'uses: wgtechlabs/build-flow-action/.github/workflows/codeql.yml@9a4d32e4bc916c8fadb5953a978ae8f5c2242cb1',
     'concurrency:',
     'group: build-flow-release-${{ github.repository }}-${{ inputs.main-branch }}-${{ github.ref }}',
     "needs.context.outputs.is-main == 'true'",
@@ -180,7 +180,7 @@ foreach ($flow in $contracts.Keys) {
 
 $wrapper = Get-Content -Raw (Join-Path $root '.github/workflows/container.yml')
 foreach ($required in @(
-  'uses: $/.github/workflows/app.yml',
+  'uses: wgtechlabs/build-flow-action/.github/workflows/app.yml@9a4d32e4bc916c8fadb5953a978ae8f5c2242cb1',
   'secrets: inherit',
   'enable-container: true',
   'value: ${{ jobs.container-flow.outputs.container-artifact-published }}',
