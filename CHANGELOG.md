@@ -7,10 +7,89 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
 
-- build release artifacts from the finalized version commit before publishing the GitHub Release
-- ignore bot-authored release publication events to prevent duplicate artifact builds
+## [1.0.2] - 2026-11-09
+
+### Changed
+
+- use full refs for nested reusable workflows
+- update CHANGELOG.md for v1.0.1
+- restructure README with Clean README guidance
+- clarify artifact publishing defaults
+
+## [1.0.1] - 2026-10-23
+
+### Changed
+
+- fix nested reusable workflow paths
+
+## [1.0.0] - 2026-10-06
+
+### Changed
+
+- handle fork permissions in oidc fixtures
+- **BREAKING:** default npm publishing to trusted publishing
+
+## [0.3.3] - 2026-10-03
+
+### Changed
+
+- require complete publication before release (#54)
+
+## [0.3.2] - 2026-10-03
+
+### Changed
+
+- fix skipped container check names
+
+## [0.3.1] - 2026-10-02
+
+### Security
+
+- keep nested workflows on the caller revision
+
+## [0.3.0] - 2026-10-02
+
+### Added
+
+- support multiple container images per release (#47)
+
+## [0.2.1] - 2026-09-16
+
+### Changed
+
+- address workflow review findings
+- install bun before the package primitive (#44)
+- build artifacts from finalized source (#45)
+- install bun before the package primitive
+
+## [0.2.0] - 2026-08-20
+
+### Added
+
+- add artifact-first releases (#41)
+
+### Changed
+
+- finish review fixes
+- pin primitive release refs (#43)
+- scope release concurrency and fix contract test
+- add unified build flow entry workflow
+
+## [0.1.9] - 2026-07-06
+
+### Changed
+
+- address review feedback in docs
+- update readme and architecture for full primitive input passthrough
+- clarify architecture principle for passthrough vs silent defaults (#38)
+- expose all package-build-flow-action inputs (#35)
+- expose all release-build-flow-action inputs (#34)
+- expose all container-build-flow-action inputs (#33)
+
+### Security
+
+- fix ghcr-token fallback to github.token when unset (#37)
 
 ## [0.1.8] - 2026-06-18
 
