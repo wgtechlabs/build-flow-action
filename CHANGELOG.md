@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [1.0.3] - 2026-11-11
+
+### Changed
+
+- bump package-build-flow-action to v2.3.1 (#67)
+
 ## [1.0.2] - 2026-11-09
 
 ### Changed
