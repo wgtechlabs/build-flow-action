@@ -17,7 +17,7 @@ It does **not** reimplement build, publish, or release logic. That logic lives i
 | Primitive | Role | Pinned version (SHA) | Upstream ref |
 |-----------|------|----------------------|--------------|
 | [`wgtechlabs/release-build-flow-action`](https://github.com/wgtechlabs/release-build-flow-action) | Version bump, changelog, tag, GitHub Release | `6df9cb42c24c296d902150d051a0b6be4422cccc` | v1.8.0 |
-| [`wgtechlabs/package-build-flow-action`](https://github.com/wgtechlabs/package-build-flow-action) | Publish packages (npm, GitHub Packages) | `fac4cc6f61889fbc33849df87f20aa81a2a41bf2` | v2.3.0 |
+| [`wgtechlabs/package-build-flow-action`](https://github.com/wgtechlabs/package-build-flow-action) | Publish packages (npm, GitHub Packages) | `3c23b0d2145394419260291c959fdc174a9aa696` | v2.3.1 |
 | [`wgtechlabs/container-build-flow-action`](https://github.com/wgtechlabs/container-build-flow-action) | Build and publish containers (Docker Hub, GHCR) | `fb5c0662b33f7702bc1ccf85350689436989f606` | v1.9.0 |
 
 All three are pinned by exact commit SHA (with a trailing release-version comment) in the reusable workflows. Bumping a primitive means updating the SHA **and** re-running the parity audit described below.
@@ -54,7 +54,7 @@ Concretely:
 - Choose pattern 2 (expose + matching default) for any input a consumer is expected to want to set; use pattern 1 (silent default) only for the rest.
 - An undocumented value-level divergence is a bug under either pattern. Historically these crept in one at a time and had to be patched repeatedly; this document and the parity reference exist to stop that.
 
-**Explicit authentication migration:** Build Flow now defaults `package-npm-auth-method` to `oidc`, while Package Build Flow v2.3.0 retains `token`. This is an announced breaking default change, with caller trust/permission setup and an explicit `token` alternative documented in the [migration guide](../README.md#migrate-existing-workflows). It is the only input-default exception; do not infer permission to override other primitive defaults.
+**Explicit authentication migration:** Build Flow now defaults `package-npm-auth-method` to `oidc`, while Package Build Flow v2.3.1 retains `token`. This is an announced breaking default change, with caller trust/permission setup and an explicit `token` alternative documented in the [migration guide](../README.md#migrate-existing-workflows). It is the only input-default exception; do not infer permission to override other primitive defaults.
 
 Example (pattern 2 — passthrough): `release-build-flow-action` defaults `sync-version-files` to `true` (it syncs the resolved version into `package.json`, `Cargo.toml`, etc.). The orchestration exposes this as `release-sync-version-files` with a default of `true`, matching the primitive default exactly — a consumer who never sets it gets identical behavior to calling the primitive directly, while one who wants it off now has a reachable toggle.
 
