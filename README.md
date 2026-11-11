@@ -380,7 +380,7 @@ Package GitHub Releases require a successful package job and publication to ever
 
 ### npm trusted publishing
 
-`app.yml` and `package.yml` support automatic npm releases through GitHub Actions OIDC. The package job uses [Package Build Flow v2.3.0](https://github.com/wgtechlabs/package-build-flow-action/releases/tag/v2.3.0), pinned to `fac4cc6f61889fbc33849df87f20aa81a2a41bf2`. Use a Build Flow release or immutable commit containing `package-npm-auth-method`; upgrading the primitive alone does not upgrade an older Build Flow pin.
+`app.yml` and `package.yml` support automatic npm releases through GitHub Actions OIDC. The package job uses [Package Build Flow v2.3.1](https://github.com/wgtechlabs/package-build-flow-action/releases/tag/v2.3.1), pinned to `3c23b0d2145394419260291c959fdc174a9aa696`. Use a Build Flow release or immutable commit containing `package-npm-auth-method`; upgrading the primitive alone does not upgrade an older Build Flow pin.
 
 Before publishing:
 

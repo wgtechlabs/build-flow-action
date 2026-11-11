@@ -58,7 +58,7 @@ $contracts = @{
   'app.yml' = @(
     'wgtechlabs/release-build-flow-action@6df9cb42c24c296d902150d051a0b6be4422cccc # v1.8.0',
     'wgtechlabs/container-build-flow-action@fb5c0662b33f7702bc1ccf85350689436989f606 # v1.9.0',
-    'wgtechlabs/package-build-flow-action@fac4cc6f61889fbc33849df87f20aa81a2a41bf2 # v2.3.0',
+    'wgtechlabs/package-build-flow-action@3c23b0d2145394419260291c959fdc174a9aa696 # v2.3.1',
     'version-plan:', 'source-finalize:', 'finalized-sha:', 'planned-version-tag:', 'planned-version-bump-type:', 'artifact-published:',
     'ref: ${{ needs.source-finalize.outputs.finalized-sha || github.sha }}',
     'needs.source-finalize.result == ''success''',
@@ -68,7 +68,7 @@ $contracts = @{
   )
   'package.yml' = @(
     'wgtechlabs/release-build-flow-action@6df9cb42c24c296d902150d051a0b6be4422cccc # v1.8.0',
-    'wgtechlabs/package-build-flow-action@fac4cc6f61889fbc33849df87f20aa81a2a41bf2 # v2.3.0',
+    'wgtechlabs/package-build-flow-action@3c23b0d2145394419260291c959fdc174a9aa696 # v2.3.1',
     'version-plan:', 'source-finalize:', 'finalized-sha:', 'planned-version:', 'planned-npm-tag:', 'artifact-published:',
     'ref: ${{ needs.source-finalize.outputs.finalized-sha || github.sha }}',
     'needs.source-finalize.result == ''success''',
