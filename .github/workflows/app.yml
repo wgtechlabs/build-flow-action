@@ -1011,7 +1011,7 @@ jobs:
 
       - name: Run package primitive
         id: package
-        uses: wgtechlabs/package-build-flow-action@fac4cc6f61889fbc33849df87f20aa81a2a41bf2 # v2.3.0
+        uses: wgtechlabs/package-build-flow-action@3c23b0d2145394419260291c959fdc174a9aa696 # v2.3.1
         with:
           registry: ${{ inputs.package-registry }}
           dry-run: ${{ inputs.package-dry-run }}
